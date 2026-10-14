@@ -1,0 +1,2915 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tablero de Mundodisco</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+
+/* Layout: a parchment workbench — thin ledger bar on top, the map as a table you lean over, the compendium as a bound book on the right. Octarine (the eighth colour) marks magic and selection; sealing-wax red marks danger. */
+:root{
+  --bg:#e6dbbd; --paper:#f5ecd6; --paper-2:#ede1c3; --ink:#2a2017; --ink-soft:#6a5843; --line:#c4ad80;
+  --table:#cbbd95; --gridline:rgba(42,32,23,.32);
+  --octarine:#6a3d9e; --octarine-soft:rgba(106,61,158,.14); --seal:#8f2b1f; --brass:#94701f;
+  --shadow:0 1px 0 rgba(255,255,255,.5) inset, 0 6px 18px rgba(60,40,15,.18);
+  --f-display:"IM Fell English SC","IM Fell English",Georgia,"Times New Roman",serif;
+  --f-fell:"IM Fell English",Georgia,serif;
+  --f-body:"Alegreya Sans","Trebuchet MS",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#16120d; --paper:#211b14; --paper-2:#2a2219; --ink:#ece0c6; --ink-soft:#a9977b; --line:#43372a;
+  --table:#2b241a; --gridline:rgba(236,224,198,.22);
+  --octarine:#b58ce6; --octarine-soft:rgba(181,140,230,.16); --seal:#da6a52; --brass:#d0a95a;
+  --shadow:0 6px 18px rgba(0,0,0,.45); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#16120d; --paper:#211b14; --paper-2:#2a2219; --ink:#ece0c6; --ink-soft:#a9977b; --line:#43372a;
+  --table:#2b241a; --gridline:rgba(236,224,198,.22);
+  --octarine:#b58ce6; --octarine-soft:rgba(181,140,230,.16); --seal:#da6a52; --brass:#d0a95a;
+  --shadow:0 6px 18px rgba(0,0,0,.45); color-scheme:dark }
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;overflow:hidden;
+  display:grid;grid-template-rows:auto 1fr}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--octarine);outline-offset:2px}
+
+/* ---------- top bar ---------- */
+.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:10px;padding-inline:16px}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0;margin-right:auto}
+.brand h1{font-family:var(--f-display);font-weight:400;font-size:1.55rem;margin:0;letter-spacing:.01em;white-space:nowrap}
+.brand .who{font-size:.8rem;color:var(--ink-soft);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper);border-radius:6px;
+  padding:6px 11px;cursor:pointer;line-height:1.1;white-space:nowrap}
+.btn:hover{border-color:var(--ink-soft)}
+.btn[aria-pressed="true"]{background:var(--octarine-soft);border-color:var(--octarine);color:var(--ink)}
+.btn.primary{background:var(--octarine);border-color:var(--octarine);color:var(--paper)}
+.btn.danger{color:var(--seal);border-color:color-mix(in srgb,var(--seal) 45%,var(--line))}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.5;cursor:default}
+.zoom{font-variant-numeric:tabular-nums;min-width:3.4em;text-align:center;font-size:.85rem;color:var(--ink-soft)}
+.sep{width:1px;height:22px;background:var(--line)}
+
+/* ---------- stage ---------- */
+.stage{display:grid;grid-template-columns:1fr auto;gap:14px;min-height:0;padding:0 16px 16px}
+#viewport{position:relative;overflow:hidden;border-radius:10px;border:1px solid var(--line);min-height:0;
+  background:var(--table);
+  background-image:radial-gradient(ellipse at 30% 20%,rgba(255,255,255,.18),transparent 60%),radial-gradient(ellipse at 80% 90%,rgba(0,0,0,.12),transparent 55%);
+  touch-action:none;cursor:grab;box-shadow:var(--shadow)}
+#viewport.panning{cursor:grabbing}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+#paper{position:absolute;left:0;top:0;background:var(--paper);box-shadow:0 2px 14px rgba(0,0,0,.25)}
+#mapimg{position:absolute;left:0;top:0;max-width:none;user-select:none;-webkit-user-drag:none;pointer-events:none}
+#grid{position:absolute;left:0;top:0;pointer-events:none}
+#tokens{position:absolute;left:0;top:0}
+
+.token{position:absolute;left:0;top:0;cursor:grab;touch-action:none}
+.token .disc{width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--paper-2);
+  border:3px solid var(--c,var(--octarine));box-shadow:0 3px 8px rgba(0,0,0,.4);display:grid;place-items:center}
+.token .disc img{width:100%;height:100%;object-fit:cover;pointer-events:none;-webkit-user-drag:none}
+.token .disc span{font-family:var(--f-display);color:var(--ink);font-size:var(--fs)}
+.token .nm{position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:3px;white-space:nowrap;
+  background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:1px 6px;
+  font-size:var(--fs);line-height:1.25;font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.25);pointer-events:none}
+.token.sel .disc{outline:3px solid var(--octarine);outline-offset:3px}
+.token.lifted{z-index:5;cursor:grabbing}
+.token.lifted .disc{transform:scale(1.06);box-shadow:0 10px 20px rgba(0,0,0,.45)}
+.token.remote .disc{outline:2px dashed var(--brass);outline-offset:3px}
+
+.empty{position:absolute;inset:auto 16px 16px 16px;max-width:30rem;background:var(--paper);border:1px solid var(--line);
+  border-radius:8px;padding:12px 14px;box-shadow:var(--shadow);font-size:.92rem;pointer-events:auto}
+.empty b{font-family:var(--f-fell);font-weight:400;font-size:1.08rem;display:block;margin-bottom:2px}
+.peers{position:absolute;right:12px;top:10px;font-size:.78rem;background:var(--paper);border:1px solid var(--line);
+  border-radius:20px;padding:3px 10px;color:var(--ink-soft)}
+
+/* ---------- side book ---------- */
+#side{width:360px;min-height:0;display:flex;flex-direction:column;background:var(--paper);border:1px solid var(--line);
+  border-radius:10px;box-shadow:var(--shadow);overflow:hidden}
+#side[hidden]{display:none!important}
+.tabs{display:flex;border-bottom:1px solid var(--line);background:var(--paper-2)}
+.tabs button{flex:1;border:0;background:none;padding:10px 6px 8px;cursor:pointer;font-family:var(--f-display);font-size:1.05rem;
+  color:var(--ink-soft);border-bottom:2px solid transparent}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--octarine)}
+.sidebody{flex:1;overflow:auto;padding:14px 16px 18px;min-height:0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.search{flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:6px 9px}
+select.search{flex:0 1 auto}
+.list{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column}
+.list li{display:flex;align-items:center;gap:10px;padding:8px 6px;border-top:1px solid var(--line);cursor:pointer;border-radius:4px}
+.list li:hover{background:var(--octarine-soft)}
+.list .thumb{width:38px;height:38px;border-radius:50%;flex:none;background:var(--paper-2);border:2px solid var(--line);overflow:hidden;
+  display:grid;place-items:center;font-family:var(--f-display)}
+.list .thumb img{width:100%;height:100%;object-fit:cover}
+.list .lvl{width:38px;flex:none;text-align:center;font-family:var(--f-display);font-size:1.25rem;color:var(--octarine)}
+.list .t{min-width:0;flex:1}
+.list .t b{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list .t small{color:var(--ink-soft);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hint{color:var(--ink-soft);font-size:.9rem;margin:14px 2px 0;line-height:1.45}
+
+h2.card-h{font-family:var(--f-display);font-weight:400;font-size:1.6rem;margin:0;line-height:1.1;text-wrap:balance}
+.eyebrow{font-size:.74rem;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft)}
+.card-top{display:flex;gap:14px;align-items:center;margin:6px 0 12px}
+.portrait{width:92px;height:92px;border-radius:50%;flex:none;overflow:hidden;border:3px solid var(--c,var(--octarine));background:var(--paper-2);
+  display:grid;place-items:center;font-family:var(--f-display);font-size:2rem}
+.portrait img{width:100%;height:100%;object-fit:cover}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:10px 0;font-size:.93rem}
+.kv dt{color:var(--ink-soft)} .kv dd{margin:0}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin:10px 0;text-align:center}
+.stats div{border:1px solid var(--line);border-radius:6px;padding:4px 0;background:var(--bg)}
+.stats small{display:block;font-size:.66rem;letter-spacing:.08em;color:var(--ink-soft)}
+.stats b{font-variant-numeric:tabular-nums;font-size:1.05rem}
+.stats i{display:block;font-style:normal;font-size:.75rem;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.prose{white-space:pre-wrap;line-height:1.5;margin:10px 0;font-size:.95rem}
+.prose:empty{display:none}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.back{border:0;background:none;color:var(--ink-soft);cursor:pointer;padding:0;margin-bottom:8px;font-size:.88rem}
+.back:hover{color:var(--ink)}
+
+form.ed{display:flex;flex-direction:column;gap:10px}
+.fld{display:flex;flex-direction:column;gap:3px;min-width:0}
+.fld label{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.fld input,.fld select,.fld textarea{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:6px 8px;width:100%}
+.fld textarea{min-height:110px;resize:vertical;line-height:1.45}
+.fld.chk{flex-direction:row;align-items:center;gap:8px}
+.fld.chk input{width:auto}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.statin{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.statin input{text-align:center;padding:5px 2px}
+.imgpick{display:flex;align-items:center;gap:12px}
+.imgpick .portrait{width:64px;height:64px;font-size:1.4rem}
+
+/* token card above the book */
+.tokcard{border-bottom:1px solid var(--line);padding:12px 16px;background:var(--octarine-soft)}
+.tokcard .head{display:flex;gap:12px;align-items:center}
+.tokcard .portrait{width:58px;height:58px;font-size:1.3rem}
+.tokcard input.nm{font-family:var(--f-fell);font-size:1.2rem;border:1px solid transparent;background:transparent;border-radius:4px;padding:2px 4px;width:100%;min-width:0}
+.tokcard input.nm:hover,.tokcard input.nm:focus{border-color:var(--line);background:var(--paper)}
+.swatches{display:flex;gap:6px}
+.sw{width:22px;height:22px;border-radius:50%;border:2px solid var(--paper);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
+.sw[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink)}
+
+/* map settings sheet */
+.sheet{position:fixed;inset:0;background:rgba(20,14,8,.45);display:grid;place-items:center;padding:16px;z-index:20}
+.sheet .pane{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:18px 20px;width:min(440px,100%);max-height:100%;overflow:auto;box-shadow:var(--shadow)}
+.sheet h2{font-family:var(--f-display);font-weight:400;margin:0 0 10px;font-size:1.5rem}
+.sheet .note{font-size:.88rem;color:var(--ink-soft);line-height:1.45;margin:4px 0 10px}
+
+#toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);
+  padding:8px 14px;border-radius:6px;font-size:.92rem;z-index:30;max-width:calc(100% - 32px);box-shadow:var(--shadow)}
+
+@media (max-width:860px){
+  .stage{grid-template-columns:1fr}
+  #side{position:fixed;right:16px;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));top:auto;width:auto;max-height:68%;z-index:10}
+  .brand h1{font-size:1.25rem}
+  .brand .who{display:none}
+}
+@media (prefers-reduced-motion:no-preference){
+  .token .disc{transition:transform .12s ease, box-shadow .12s ease}
+}
+
+.mine{font-style:normal;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--octarine);margin-left:6px;font-weight:700}
+.tkname{font-family:var(--f-fell);font-size:1.2rem;overflow-wrap:anywhere}
+.people{list-style:none;margin:6px 0 0;padding:0}
+.people li{display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+.people li small{grid-column:2;color:var(--ink-soft);font-size:.85rem}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--line);grid-row:span 2}
+.dot.on{background:#3f8f5a}
+.who.clickable{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+.initbox{position:absolute;left:10px;top:10px;width:min(270px,calc(100% - 20px));max-height:calc(100% - 20px);overflow:auto;background:var(--paper);
+  border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:8px 10px 10px;cursor:default;z-index:4}
+.ihead{display:flex;align-items:center;gap:8px}
+.itoggle{border:0;background:none;padding:0;font-family:var(--f-display);font-size:1.25rem;cursor:pointer;color:var(--ink)}
+.iround{font-size:.78rem;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft);margin-right:auto;font-variant-numeric:tabular-nums}
+.irows{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
+.irows li{display:grid;grid-template-columns:30px 1fr auto auto;gap:8px;align-items:center;padding:4px 6px;border-radius:6px;border:1px solid transparent;cursor:pointer}
+.irows li:hover{background:var(--octarine-soft)}
+.irows li.cur{background:color-mix(in srgb,var(--brass) 20%,var(--paper));border-color:var(--brass)}
+.irows li.cur .iname{font-weight:700}
+.irows li.gone{opacity:.55}
+.ithumb{width:30px;height:30px;border-radius:50%;overflow:hidden;border:2px solid var(--c);display:grid;place-items:center;background:var(--paper-2);font-family:var(--f-display)}
+.ithumb img{width:100%;height:100%;object-fit:cover}
+.iname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.95rem}
+.ival{width:3.2em;text-align:center;font-variant-numeric:tabular-nums;font-weight:700;border:1px solid var(--line);border-radius:5px;background:var(--bg);padding:3px 2px;font-size:.95rem}
+.ival.ro{border-color:transparent;background:none}
+.ix{border:0;background:none;color:var(--ink-soft);font-size:1.15rem;line-height:1;cursor:pointer;padding:2px 4px}
+.ix:hover{color:var(--seal)}
+.iacts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.iacts .btn{padding:5px 9px;font-size:.88rem}
+.ihint{font-size:.88rem;color:var(--ink-soft);margin:6px 0 0;line-height:1.4}
+.ihint:empty{display:none}
+.token.turn .disc{box-shadow:0 0 0 4px var(--brass),0 0 22px 6px color-mix(in srgb,var(--brass) 70%,transparent)}
+@media (prefers-reduced-motion:no-preference){.token.turn .disc{animation:turnglow 1.8s ease-in-out infinite}}
+@keyframes turnglow{50%{box-shadow:0 0 0 4px var(--brass),0 0 34px 12px color-mix(in srgb,var(--brass) 45%,transparent)}}
+:root{--hp-ok:#4d8a45}
+.token .hpbar{position:absolute;left:8%;right:8%;top:calc(-1 * max(7px, var(--fs) * .55));height:max(5px, calc(var(--fs) * .38));background:rgba(20,14,8,.55);
+  border-radius:3px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.5);pointer-events:auto}
+.token .hpbar i{display:block;height:100%;transition:width .25s ease}
+.token .hpbar.priv{box-shadow:0 0 0 1px var(--brass);opacity:.75;background-image:repeating-linear-gradient(45deg,transparent 0 3px,rgba(255,255,255,.15) 3px 6px)}
+.token.down .disc{filter:grayscale(1) brightness(.7)}
+.token.down .disc::after{content:"";position:absolute}
+.token .conds{position:absolute;right:calc(-1 * var(--fs) * .55);top:0;display:flex;flex-direction:column;flex-wrap:wrap;gap:2px;max-height:100%;pointer-events:none}
+.token .cb{min-width:calc(var(--fs) * 1.35);height:calc(var(--fs) * 1.35);border-radius:999px;background:var(--seal);color:#fff;font-size:calc(var(--fs) * .62);
+  font-weight:700;display:grid;place-items:center;padding:0 3px;border:1.5px solid var(--paper);box-shadow:0 1px 3px rgba(0,0,0,.35);line-height:1}
+.token .cb.conc{background:var(--octarine)}
+.token .cb.exh{background:#3a3a3a}
+.vit{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.vrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.vrow .eyebrow{margin-right:2px}
+.vnum{width:4.2em;text-align:center;font-variant-numeric:tabular-nums;font-weight:700;border:1px solid var(--line);border-radius:5px;background:var(--bg);padding:4px 2px}
+.vnum.wide{width:6.5em;font-weight:400}
+.vread{font-variant-numeric:tabular-nums}
+.vnone{color:var(--ink-soft);font-size:.9rem}
+.vbar{flex:1;min-width:60px;height:8px;border-radius:4px;background:var(--paper-2);border:1px solid var(--line);overflow:hidden}
+.vbar i{display:block;height:100%}
+.vpub{display:flex;align-items:center;gap:6px;font-size:.9rem;color:var(--ink-soft)}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:3px 9px;font-size:.82rem;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--seal);border-color:var(--seal);color:#fff}
+.chip[data-cond="concentracion"][aria-pressed="true"]{background:var(--octarine);border-color:var(--octarine)}
+.chip:disabled{cursor:default;opacity:1}
+.addcond{padding:3px 6px;font-size:.82rem;border-radius:999px}
+#tokcard{max-height:62%;overflow:auto}
+.tabs button{font-size:1rem;padding-inline:4px}
+.tabs button.alert{color:var(--seal)}
+.rolls{margin:12px 0 4px;display:flex;flex-direction:column;gap:10px}
+.rgrp{display:flex;flex-direction:column;gap:5px;margin-top:10px}
+.rolls .rgrp{margin-top:0}
+.rgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+.rgrid.six{grid-template-columns:repeat(6,minmax(0,1fr))}
+.rgrid.one{grid-template-columns:1fr}
+.rb{display:flex;align-items:center;justify-content:space-between;gap:6px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:5px 8px;cursor:pointer;min-width:0;font-size:.88rem;text-align:left}
+.rb span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rb b{font-variant-numeric:tabular-nums}
+.rb:hover{border-color:var(--octarine);background:var(--octarine-soft)}
+.rgrid.six .rb{flex-direction:column;gap:0;padding:4px 2px;text-align:center;justify-content:center}
+.rgrid.six .rb span{font-size:.7rem;letter-spacing:.06em;color:var(--ink-soft)}
+.rb.strong{border-color:color-mix(in srgb,var(--octarine) 55%,var(--line))}
+.rb.strong span{color:var(--octarine);font-weight:700}
+.rb.atk{flex-wrap:wrap}
+.rb.atk small{flex-basis:100%;color:var(--ink-soft);font-size:.8rem}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{flex:1;border:0;background:var(--paper);padding:6px 4px;cursor:pointer;font-size:.88rem}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--octarine);color:var(--paper)}
+.dice{display:flex;flex-wrap:wrap;gap:4px}
+.dz{flex:1 1 0;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:6px 0;cursor:pointer;font-family:var(--f-display);font-size:1.05rem}
+.dz:hover{border-color:var(--octarine);background:var(--octarine-soft)}
+.rlog{list-style:none;margin:6px 0 10px;padding:0;display:flex;flex-direction:column;gap:6px}
+.ritem{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--paper)}
+.ritem.pend{border-color:var(--brass);background:color-mix(in srgb,var(--brass) 10%,var(--paper))}
+.ritem.no{opacity:.6}
+.ritem.secret{border-style:dashed}
+.rhead{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;font-size:.9rem}
+.rhead span{color:var(--ink-soft)}
+.rsec{font-style:normal;font-size:.7rem;letter-spacing:.07em;text-transform:uppercase;color:var(--brass);margin-left:auto}
+.rres{display:flex;align-items:baseline;gap:10px;margin-top:4px}
+.rtot{font-family:var(--f-display);font-size:1.9rem;line-height:1;font-variant-numeric:tabular-nums;min-width:1.4em}
+.rtot.crit{color:var(--hp-ok)}
+.rtot.fumble{color:var(--seal)}
+.rres.dmg .rtot{font-size:1.35rem;color:var(--seal)}
+.rdet{color:var(--ink-soft);font-size:.82rem;font-variant-numeric:tabular-nums}
+.rstate{color:var(--ink-soft);font-size:.88rem;margin-top:4px;font-style:italic}
+.rstate.no{color:var(--seal)}
+.ract{display:flex;gap:6px;margin-top:8px}
+.rmore{margin-top:14px}
+.rmore summary{cursor:pointer;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.chkrow{display:flex;flex-wrap:wrap;gap:4px 12px}
+.cbx{display:inline-flex;align-items:center;gap:4px;font-size:.9rem;text-transform:none;letter-spacing:0;color:var(--ink)}
+.cbx input{width:auto}
+.habs summary{cursor:pointer;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.habs summary small{text-transform:none;letter-spacing:0}
+.habgrid{display:flex;flex-direction:column;gap:3px;margin-top:6px}
+.habrow{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.9rem;text-transform:none;letter-spacing:0;color:var(--ink)}
+.habrow small{color:var(--ink-soft);font-size:.7rem}
+.habrow select{width:auto}
+.atqrow{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:6px;border:1px solid var(--line);border-radius:6px;margin-bottom:4px;position:relative;background:var(--paper)}
+.atqrow input,.atqrow select{border:1px solid var(--line);background:var(--bg);border-radius:5px;padding:4px 6px;width:100%;min-width:0}
+.atqrow input[name^="atq-n"]{grid-column:1/-1;padding-right:28px}
+.atqrow .ix{position:absolute;right:4px;top:4px}
+#tpls{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+#tpls .tpl{pointer-events:visiblePainted;cursor:pointer}
+#tpls .tpl.ed{cursor:move}
+#tpls .tpl-t{fill:#fff;stroke:rgba(20,14,8,.78);stroke-width:3px;paint-order:stroke;font-family:var(--f-body);font-weight:700;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+#tpls .tpl-o{stroke:#fff;stroke-width:1.5}
+#tpls .tpl-h{fill:#fff;stroke-width:3;cursor:grab}
+#viewport.placing,#viewport.placing *{cursor:crosshair!important}
+.token.inarea:not(.sel) .disc{outline:3px solid var(--ac);outline-offset:3px}
+.areabox{left:auto;right:10px;top:40px;width:min(290px,calc(100% - 20px))}
+.areabox .duo{gap:6px 8px;margin-top:6px}
+.areabox .fld input,.areabox .fld select{padding:4px 6px}
+.areabox input[type=range]{padding:0;border:0;background:none;accent-color:var(--octarine)}
+.areabox .swatches{flex-wrap:wrap}
+.alist{list-style:none;margin:10px 0 0;padding:8px 0 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+.alist li{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:6px;cursor:pointer;border:1px solid transparent}
+.alist li:hover{background:var(--octarine-soft)}
+.alist li.cur{border-color:var(--octarine)}
+.alist small{color:var(--ink-soft)}
+.adot{width:12px;height:12px;border-radius:50%;flex:none}
+.aprop{font-style:normal;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--brass);margin-left:auto;white-space:nowrap}
+@media (max-width:860px){.areabox{top:auto;bottom:10px}}
+#fog{position:absolute;left:0;top:0;pointer-events:none}
+#fog.dm{opacity:.5}
+#rulers{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:6}
+#rulers .rl{fill:#fff;stroke-width:5px;paint-order:stroke;stroke-linejoin:round;font-family:var(--f-body);font-weight:700;text-anchor:middle;dominant-baseline:middle}
+#rulers .fogprev{fill:rgba(255,255,255,.12);stroke:#fff;stroke-width:2;stroke-dasharray:8 6}
+#rulers .fogprev.hide{fill:rgba(20,14,8,.35)}
+#viewport.measuring,#viewport.measuring *{cursor:crosshair!important}
+#viewport.fogging,#viewport.fogging *{cursor:cell!important}
+#viewport.prep{outline:3px dashed var(--brass);outline-offset:-3px}
+.pagebanner{position:absolute;left:50%;top:10px;transform:translateX(-50%);max-width:calc(100% - 20px);background:var(--brass);color:#fff;
+  font-size:.82rem;font-weight:500;padding:4px 12px;border-radius:999px;z-index:3;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:var(--shadow)}
+.token.fogged .disc{opacity:.5;filter:saturate(.4)}
+.token.fogged .nm{font-style:italic;opacity:.75}
+.token.fogged .nm::after{content:" · oculta"}
+.pagesel{flex:0 1 auto;max-width:12rem;padding:6px 8px}
+.btn.bring{background:var(--brass);border-color:var(--brass);color:#fff}
+.ph{font-family:var(--f-display);font-weight:400;font-size:1.15rem;margin:16px 0 8px}
+.plist{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.plist li{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.plist li.cur{border-color:var(--octarine)}
+.plist .pname{flex:1 1 9rem;min-width:0;border:1px solid transparent;background:transparent;border-radius:5px;padding:4px 6px;font-family:var(--f-fell);font-size:1.05rem}
+.plist .pname:hover,.plist .pname:focus{border-color:var(--line);background:var(--paper)}
+.pacts{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.pacts .btn{padding:4px 9px;font-size:.85rem}
+.ptag{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--brass);border-radius:999px;padding:3px 8px}
+.ptag.soft{background:none;color:var(--ink-soft);padding:3px 2px}
+#fx{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.targetbar{position:absolute;left:50%;top:44px;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;
+  background:var(--paper);border:2px solid var(--seal);border-radius:10px;padding:6px 8px 6px 12px;box-shadow:var(--shadow);max-width:calc(100% - 20px);font-size:.9rem}
+.targetbar .btn{padding:4px 10px;font-size:.85rem}
+#viewport.targeting .token{cursor:crosshair!important}
+#viewport.targeting .token:hover .disc{outline:3px solid var(--seal);outline-offset:3px}
+.rhit{margin-top:4px;font-weight:700;font-size:.9rem}
+.rhit.y{color:var(--hp-ok)}
+.rhit.n{color:var(--seal)}
+.rhit small{font-weight:400;color:var(--ink-soft)}
+.tkatk{margin-top:4px}
+@keyframes tokshake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8%) rotate(-4deg)}40%{transform:translateX(7%) rotate(3deg)}60%{transform:translateX(-5%)}80%{transform:translateX(3%)}}
+@keyframes tokflash{0%{box-shadow:0 0 0 0 rgba(255,80,50,.9),0 3px 8px rgba(0,0,0,.4)}100%{box-shadow:0 0 0 14px rgba(255,80,50,0),0 3px 8px rgba(0,0,0,.4)}}
+.token.hitfx .disc{animation:tokshake .45s ease,tokflash .6s ease-out}
+.token.critfx .disc{animation:tokshake .6s ease 2,tokflash .7s ease-out 2}
+@media (prefers-reduced-motion:reduce){.token.hitfx .disc,.token.critfx .disc{animation:tokflash .6s ease-out}}
+.atqrow .svrow{grid-column:1/-1;display:grid;grid-template-columns:1fr 6.5em auto;gap:4px;align-items:center}
+.atqrow .svrow[hidden]{display:none}
+.saves{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:3px}
+.saves li{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:baseline;padding:3px 8px;border-radius:5px;font-size:.9rem;font-variant-numeric:tabular-nums}
+.saves li.ok{background:color-mix(in srgb,var(--hp-ok) 12%,transparent)}
+.saves li.ko{background:color-mix(in srgb,var(--seal) 12%,transparent)}
+.saves li b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saves li small{color:var(--ink-soft)}
+.saves li em{font-style:normal;font-weight:700}
+.saves li.ok em{color:var(--hp-ok)}
+.saves li.ko em{color:var(--seal)}
+.token.tgt .disc{outline:4px solid var(--seal);outline-offset:4px}
+.targetbar select{padding:4px 6px;font-size:.85rem;max-width:12rem}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+<header class="bar">
+  <div class="brand"><h1>Tablero de Mundodisco</h1><span class="who" id="who">Abriendo la mesa…</span></div>
+  <div class="tools">
+    <button class="btn" id="zout" title="Alejar" aria-label="Alejar">−</button>
+    <span class="zoom" id="zlbl">100%</span>
+    <button class="btn" id="zin" title="Acercar" aria-label="Acercar">+</button>
+    <button class="btn" id="fit" title="Ver el mapa entero">Encajar</button>
+    <span class="sep"></span>
+    <button class="btn" id="gridbtn" aria-pressed="true" title="Mostrar u ocultar la cuadrícula">Cuadrícula</button>
+    <button class="btn" id="snapbtn" aria-pressed="true" title="Al soltar, la ficha se ajusta a la casilla">Ajustar</button>
+    <button class="btn" id="rulerbtn" aria-pressed="false" title="Medir distancias en pies">Regla</button>
+    <button class="btn" id="addtok">+ Ficha</button>
+    <button class="btn" id="initbtn" aria-pressed="false">Turnos</button>
+    <button class="btn" id="areabtn" aria-pressed="false">Áreas</button>
+    <button class="btn" id="fogbtn" aria-pressed="false">Niebla</button>
+    <span class="sep"></span>
+    <select class="search pagesel" id="pagesel" aria-label="Mapa que estás viendo" hidden></select>
+    <button class="btn" id="mapbtn" hidden>Mapas…</button>
+    <button class="btn bring" id="bringbtn" hidden>Llevar jugadores aquí</button>
+    <button class="btn" id="savebtn" hidden>Copias…</button>
+    <button class="btn primary" id="invbtn" hidden>Invitar</button>
+    <button class="btn" id="bookbtn" aria-pressed="true">Compendio</button>
+  </div>
+</header>
+
+<main class="stage">
+  <div id="viewport" aria-label="Mapa">
+    <div id="world"><div id="paper"></div><img id="mapimg" alt="" hidden><div id="grid"></div><svg id="tpls" xmlns="http://www.w3.org/2000/svg"></svg><canvas id="fog" hidden></canvas><div id="tokens"></div><svg id="rulers" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    <canvas id="fx" hidden></canvas>
+    <div class="pagebanner" id="pagebanner" hidden></div>
+    <div class="targetbar" id="targetbar" hidden></div>
+    <div class="empty" id="empty" hidden></div>
+    <div class="peers" id="peers" hidden></div>
+    <section class="initbox" id="initbox" aria-label="Orden de turnos" hidden></section>
+    <section class="initbox areabox" id="areabox" aria-label="Áreas de hechizo" hidden></section>
+    <section class="initbox areabox" id="fogbox" aria-label="Niebla" hidden></section>
+  </div>
+  <aside id="side">
+    <div id="tokcard" class="tokcard" hidden></div>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-k="personaje" aria-selected="true">Personajes</button>
+      <button role="tab" data-k="hechizo" aria-selected="false">Hechizos</button>
+      <button role="tab" data-k="ficha" aria-selected="false">Fichas</button>
+      <button role="tab" data-k="dados" aria-selected="false">Dados</button>
+    </div>
+    <div class="sidebody" id="sidebody"></div>
+  </aside>
+</main>
+
+<div class="sheet" id="mapsheet" hidden>
+  <div class="pane" role="dialog" aria-label="Mapas">
+    <h2>Mapas</h2>
+    <p class="note">Tus jugadores solo ven el mapa marcado como «Jugadores aquí». Los demás los puedes preparar sin que los vean.</p>
+    <div id="pagelist"></div>
+    <h3 class="ph">Este mapa: <span id="curpname"></span></h3>
+    <div class="row">
+      <button class="btn primary" id="mapup">Subir imagen del mapa</button>
+      <button class="btn danger" id="maprm">Quitar mapa</button>
+    </div>
+    <p class="note">Ajusta la cuadrícula hasta que encaje con las casillas dibujadas en tu mapa. Cada casilla son 5 pies.</p>
+    <div class="duo">
+      <div class="fld"><label for="g-size">Tamaño de casilla (px)</label><input id="g-size" type="number" min="10" max="400" step="1"></div>
+      <div class="fld"><label for="g-col">Color de las líneas</label><select id="g-col"><option value="">Tinta</option><option value="light">Clara</option><option value="none">Muy suave</option></select></div>
+      <div class="fld"><label for="g-ox">Desplazar horizontal</label><input id="g-ox" type="number" step="1"></div>
+      <div class="fld"><label for="g-oy">Desplazar vertical</label><input id="g-oy" type="number" step="1"></div>
+      <div class="fld"><label for="g-cols">Columnas (sin mapa)</label><input id="g-cols" type="number" min="5" max="200"></div>
+      <div class="fld"><label for="g-rows">Filas (sin mapa)</label><input id="g-rows" type="number" min="5" max="200"></div>
+    </div>
+    <div class="actions"><button class="btn primary" id="mapsave">Guardar</button><button class="btn ghost" data-close>Cerrar</button></div>
+  </div>
+</div>
+
+<div class="sheet" id="invsheet" hidden>
+  <div class="pane" role="dialog" aria-label="Invitar jugadores">
+    <h2>Invitar a la mesa</h2>
+    <p class="note" id="invnote">Manda este enlace a tus jugadores. No necesitan cuenta: lo abren y entran.</p>
+    <div class="row"><input class="search" id="invlink" readonly aria-label="Enlace para jugadores"><button class="btn primary" id="invcopy">Copiar</button></div>
+    <div id="invpeople"></div>
+    <p class="note">La mesa funciona mientras tengas esta pestaña abierta. Si la cierras, tus jugadores esperan y vuelven a entrar solos cuando la abras de nuevo.</p>
+    <div class="actions"><button class="btn ghost" data-close>Cerrar</button></div>
+  </div>
+</div>
+
+<div class="sheet" id="savesheet" hidden>
+  <div class="pane" role="dialog" aria-label="Copias de seguridad">
+    <h2>Copias de seguridad</h2>
+    <p class="note">Todo se guarda solo en este navegador, en este ordenador. Si borras los datos del navegador o cambias de ordenador, lo pierdes. Descarga una copia de vez en cuando, por ejemplo al acabar cada sesión.</p>
+    <div class="actions">
+      <button class="btn primary" id="exportbtn">Descargar copia</button>
+      <button class="btn" id="importbtn">Cargar una copia…</button>
+    </div>
+    <p class="note" id="importwarn" hidden>Cargar una copia sustituye el mapa, las fichas y el compendio actuales.</p>
+    <div class="actions"><button class="btn ghost" data-close>Cerrar</button></div>
+  </div>
+</div>
+
+<div class="sheet" id="namesheet" hidden>
+  <div class="pane" role="dialog" aria-label="Tu nombre">
+    <h2>¿Quién eres?</h2>
+    <p class="note">Escribe tu nombre para que el máster sepa quién ha entrado y te asigne tu personaje.</p>
+    <form id="nameform" class="row"><input class="search" id="nameinput" maxlength="40" required placeholder="Tu nombre" autocomplete="nickname"><button class="btn primary" type="submit">Entrar</button></form>
+  </div>
+</div>
+
+<datalist id="dl-dtypes"><option value="Ácido"><option value="Contundente"><option value="Cortante"><option value="Frío"><option value="Fuego"><option value="Fuerza"><option value="Necrótico"><option value="Perforante"><option value="Psíquico"><option value="Radiante"><option value="Relámpago"><option value="Trueno"><option value="Veneno"></datalist>
+<input type="file" id="filein" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+<input type="file" id="jsonin" accept=".json,application/json" hidden>
+<div id="toast" hidden></div>
+
+<script>
+
+(() => {
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+const lsGet = k => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch(e){} };
+
+const DEF_BOARD = {grid:70, ox:0, oy:0, showGrid:true, gridTone:'', cols:30, rows:20, map:null, mapW:0, mapH:0};
+const SIZES = {'Diminuto':.5,'Pequeño':1,'Mediano':1,'Grande':2,'Enorme':3,'Gargantuesco':4};
+const ESCUELAS = ['Abjuración','Adivinación','Conjuración','Encantamiento','Evocación','Ilusión','Nigromancia','Transmutación'];
+const CLASES = ['Mago','Guerrero','Bárbaro','Clérigo','Pícaro','Bruja','Alquimista'];
+const COLORS = ['#6a3d9e','#8f2b1f','#94701f','#2f6b4f','#2d5a8a','#3a3a3a'];
+const KINDS = {
+  personaje:{one:'personaje', placeable:true, fields:[
+    ['owner','Jugador','owner'],['raza','Raza'],['clase','Clase','text',CLASES],['nivel','Nivel','num'],
+    ['ca','CA','num'],['vel','Velocidad (pies)','num'],['pg','PG actuales','num'],['pgmax','PG máximos','num'],
+    ['tam','Tamaño','sel',Object.keys(SIZES)],['stats','Características','stats'],['salv','Salvaciones','salv'],['hab','Habilidades','hab'],['ataques','Ataques','atq'],['notas','Notas, rasgos y equipo','area']]},
+  hechizo:{one:'hechizo', fields:[
+    ['nivel','Nivel (0 = truco)','num'],['escuela','Escuela','sel',ESCUELAS],['clases','Clases (separadas por comas)','text',CLASES],
+    ['tiempo','Tiempo de lanzamiento'],['alcance','Alcance'],['zona','Área (p. ej. esfera de 20 pies)'],
+    ['componentes','Componentes'],['duracion','Duración'],['conc','Requiere concentración','check'],['desc','Descripción','area']]},
+  ficha:{one:'ficha', placeable:true, fields:[
+    ['tipo','Tipo','sel',['PNJ','Monstruo','Objeto']],['vd','Valor de desafío'],['ca','CA','num'],['pg','PG','num'],
+    ['vel','Velocidad (pies)','num'],['tam','Tamaño','sel',Object.keys(SIZES)],['stats','Características','stats'],['salv','Salvaciones','salv'],['ataques','Ataques','atq'],['notas','Notas y acciones','area']]}
+};
+const STATK = [['fue','FUE'],['des','DES'],['con','CON'],['int','INT'],['sab','SAB'],['car','CAR']];
+
+const params = new URLSearchParams(location.search);
+const TABLE = (params.get('mesa') || '').replace(/[^a-z0-9]/gi, '').slice(0, 24);
+const HOST = !TABLE;
+
+const S = {
+  board:{...DEF_BOARD}, tokens:new Map(), entries:new Map(), imgs:new Map(), people:new Map(), init:{rows:[], turn:null, round:1}, rolls:[], adv:'', secretRoll:false, diceFor:'', tpls:new Map(), tplDrag:new Map(), tplSel:null, pages:new Map(), playerPage:'', viewPage:'', rulers:new Map(),
+  view:{x:24,y:24,s:1}, sel:null, tab:'personaje', panel:{mode:'list',id:null}, q:'', qClass:'',
+  dm:HOST, peerDrag:new Map(), snap:true, fitted:false, ready:HOST, players:0, status:''
+};
+
+const vp = $('#viewport'), world = $('#world');
+const tokEls = new Map();
+
+/* =========================================================
+   Red: el navegador del máster es la mesa; los jugadores se conectan a él.
+   El máster decide: los jugadores solo miran, y cada uno edita únicamente
+   la hoja del personaje que el máster le ha asignado.
+   ========================================================= */
+let peer = null, hostConn = null;
+const conns = new Set();
+const sentImgs = new WeakMap();
+const PATH_RE = /^(board\/main|init\/main|page\/[A-Za-z0-9_-]{1,40}|tpl\/[A-Za-z0-9_-]{1,40}|tokens\/[A-Za-z0-9_-]{1,40}|entries\/[A-Za-z0-9_-]{1,40})$/;
+const ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
+
+// quién soy como jugador (sin cuentas: un identificador guardado en este navegador)
+function me(){
+  let m = null; try { m = JSON.parse(lsGet('tm-jugador') || 'null'); } catch(e){}
+  if (!m || !ID_RE.test(String(m.id))) m = {id:'j' + uid(), name:''};
+  return m;
+}
+function saveMe(m){ lsSet('tm-jugador', JSON.stringify(m)); }
+
+function send(conn, msg){ try { if (conn && conn.open) conn.send(msg); } catch(e){} }
+function broadcast(msg, except){ for (const c of conns) if (c !== except) send(c, msg); }
+function toNet(msg){ if (HOST) broadcast(msg); }
+
+// las fichas de PNJ y monstruos son solo del máster: nunca salen de su navegador
+const secret = e => !!e && e.kind === 'ficha';
+// lo que ve cada jugador de una entrada: nunca el identificador del dueño, solo si es suya
+function entryFor(conn, e){
+  if (!e) return e;
+  const out = {...e}; delete out.owner;
+  if (e.owner){ out.mine = !!(conn && conn.pid === e.owner); out.ownerName = (S.people.get(e.owner) || {}).name || ''; }
+  return out;
+}
+function publish(path, mode, except){
+  const [col, id] = path.split('/');
+  if (col === 'entries' && mode !== 'del'){
+    const e = S.entries.get(id);
+    if (secret(e)) return;
+    for (const c of conns) if (c !== except) send(c, {t:'op', path, mode:'set', data:entryFor(c, e)});
+  } else if (col === 'page'){
+    if (id === S.playerPage) resyncPlayers();
+  } else if (col === 'tokens'){
+    const t = S.tokens.get(id), vis = mode !== 'del' && playerVisibleTok(t);
+    broadcast({t:'op', path, mode: vis ? 'set' : 'del', data: vis ? tokenFor(t) : null}, except);
+  } else if (col === 'tpl'){
+    const t = S.tpls.get(id), vis = mode !== 'del' && playerVisibleTpl(t);
+    broadcast({t:'op', path, mode: vis ? 'set' : 'del', data: vis ? t : null}, except);
+  } else if (col === 'entries'){
+    broadcast({t:'op', path, mode:'del', data:null}, except);
+  }
+}
+function sendFull(conn, withImgs = true){
+  send(conn, {t:'full', page:S.playerPage, tpls:[...S.tpls].filter(([, t]) => playerVisibleTpl(t)), rolls:rollsForPlayers(), board:boardForPlayers(), init:S.init, tokens:[...S.tokens].filter(([, t]) => playerVisibleTok(t)).map(([id, t]) => [id, tokenFor(t)]), entries:[...S.entries].filter(([, e]) => !secret(e)).map(([id, e]) => [id, entryFor(conn, e)])});
+  if (withImgs){ sentImgs.delete(conn); pushImages(); }
+}
+
+function validImg(id, data, max = 25e6){ return ID_RE.test(String(id)) && typeof data === 'string' && /^data:image\/(png|jpeg|webp|gif);base64,/.test(data) && data.length < max; }
+function deny(conn, msg){ send(conn, {t:'deny', msg}); sendFull(conn, false); }
+
+/* --- lo que el máster acepta de un jugador --- */
+function fromPlayer(conn, d){
+  if (d.t === 'hello'){
+    if (!ID_RE.test(String(d.pid))) return;
+    const name = String(d.name || '').trim().slice(0, 40) || 'Jugador';
+    const was = conn.pid; conn.pid = d.pid;
+    const prev = S.people.get(d.pid);
+    S.people.set(d.pid, {name});
+    saveSoon();
+    if (!was) toast(name + ' ha entrado en la mesa');
+    sendFull(conn, !was);
+    if (prev && prev.name !== name) for (const c of conns) if (c !== conn) sendFull(c, false);
+    countPlayers(); renderInvitePeople(); if (S.panel.mode !== 'edit') renderSide();
+    return;
+  }
+  if (!conn.pid) return;
+  if (d.t === 'rollreq'){
+    const who = (S.people.get(conn.pid) || {}).name || 'Jugador';
+    const r = makeRoll(d, conn.pid, who);
+    if (typeof r === 'string'){ send(conn, {t:'deny', msg:r}); return; }
+    broadcastRolls(); toast(`${r.who} pide tirar: ${r.spec.label}`, 4000);
+    return;
+  }
+  if (d.t === 'initval'){
+    const r = S.init.rows.find(r => r.id === d.row);
+    const t = r && r.tok && S.tokens.get(r.tok), e = t && t.entry && S.entries.get(t.entry);
+    if (!e || e.owner !== conn.pid){ send(conn, {t:'deny', msg:'Solo puedes poner la iniciativa de tu personaje.'}); send(conn, {t:'op', path:'init/main', mode:'set', data:S.init}); return; }
+    const val = d.val === null ? null : (isFinite(d.val) ? Math.max(-20, Math.min(99, Math.round(+d.val))) : r.val);
+    setInit({...S.init, rows:S.init.rows.map(x => x.id === r.id ? {...x, val, roll:''} : x)});
+    return;
+  }
+  if (d.t === 'img'){
+    // retrato para su propio personaje; si no llega a usarse, se descarta al guardar
+    if (!validImg(d.id, d.data, 1.5e6) || S.imgs.has(d.id)) return;
+    S.imgs.set(d.id, d.data); return;
+  }
+  if (d.t === 'ruler'){
+    const name = (S.people.get(conn.pid) || {}).name || 'Jugador';
+    conn.rk = conn.rk || 'r' + uid();
+    if (d.clear || !okPt(d.a) || !okPt(d.b)){ S.rulers.delete(conn.rk); broadcast({t:'ruler', k:conn.rk, clear:true}, conn); }
+    else { const r = {a:d.a.map(Number), b:d.b.map(Number), name, at:Date.now()}; S.rulers.set(conn.rk, r); broadcast({t:'ruler', k:conn.rk, name, a:r.a, b:r.b}, conn); }
+    renderRulers(); return;
+  }
+  if (d.t === 'tdrag'){
+    const t = S.tpls.get(String(d.id));
+    if (!t || t.owner !== conn.pid) return;
+    if (d.g && typeof d.g === 'object'){ const g = {}; ['x','y','size','angle','opacity'].forEach(k => { if (isFinite(d.g[k])) g[k] = +d.g[k]; }); S.tplDrag.set(d.id, {g, at:Date.now()}); }
+    else S.tplDrag.delete(d.id);
+    renderTpls(); renderTokens(); broadcast(d, conn); return;
+  }
+  if (d.t === 'op' && String(d.path).startsWith('tpl/')){
+    const path = String(d.path), id = path.split('/')[1];
+    if (!PATH_RE.test(path)) return;
+    const ex = S.tpls.get(id), who = (S.people.get(conn.pid) || {}).name || 'Jugador';
+    if (ex && ex.owner !== conn.pid){ deny(conn, 'Solo puedes mover tus propias áreas.'); return; }
+    if (d.mode === 'del'){ if (ex){ applyOp(path, null, 'del'); publish(path, 'del', null); saveSoon(); } return; }
+    const clean = cleanTpl(d.data); if (!clean) return;
+    clean.owner = conn.pid; clean.ownerName = who; clean.status = 'prop'; clean.page = S.playerPage;
+    applyOp(path, clean, 'set'); publish(path, 'set', null); saveSoon();
+    if (!ex) toast(`${who} propone un área${clean.label ? ': ' + clean.label : ''}`, 4000);
+    return;
+  }
+  if (d.t === 'op'){
+    const path = String(d.path), [col, id] = path.split('/');
+    const e = col === 'entries' && PATH_RE.test(path) && S.entries.get(id);
+    if (!e || e.owner !== conn.pid || d.mode === 'del' || typeof d.data !== 'object' || !d.data || Array.isArray(d.data)){
+      deny(conn, 'Solo puedes cambiar la hoja de tu personaje.'); return;
+    }
+    let clean;
+    try { clean = JSON.parse(JSON.stringify(d.mode === 'update' ? {...entryFor(conn, e), ...d.data} : d.data)); } catch(_){ return; }
+    if (JSON.stringify(clean).length > 60000){ deny(conn, 'La hoja es demasiado larga.'); return; }
+    delete clean.mine; delete clean.ownerName;
+    clean.kind = 'personaje'; clean.owner = e.owner;
+    if (clean.img && !(typeof clean.img === 'object' && typeof clean.img.ref === 'string' && S.imgs.has(clean.img.ref))) clean.img = e.img || null;
+    applyOp(path, clean, 'set');
+    pushImages();
+    publish(path, 'set', null);
+    syncLinkedTokens(id);
+    saveSoon();
+  }
+}
+
+function onData(conn, d){
+  if (!d || typeof d !== 'object') return;
+  if (HOST){ if (conn) fromPlayer(conn, d); return; }
+  // jugador: todo lo que llega viene del máster
+  if (d.t === 'op'){
+    if (!PATH_RE.test(String(d.path)) || !['set','update','del'].includes(d.mode)) return;
+    if (d.mode !== 'del' && (typeof d.data !== 'object' || d.data === null)) return;
+    applyOp(d.path, d.data, d.mode);
+  } else if (d.t === 'img'){
+    if (!validImg(d.id, d.data)) return;
+    S.imgs.set(d.id, d.data); refreshImages();
+  } else if (d.t === 'full'){
+    S.board = {...DEF_BOARD, ...(d.board || {})};
+    if (d.page !== S.curPage){ S.curPage = d.page; S.fitted = false; S.rulers.clear(); S.sel = null; }
+    S.tokens = new Map(Array.isArray(d.tokens) ? d.tokens.filter(r => ID_RE.test(r[0])) : []);
+    S.entries = new Map(Array.isArray(d.entries) ? d.entries.filter(r => ID_RE.test(r[0])) : []);
+    S.init = cleanInit(d.init); renderInit();
+    S.tpls = new Map(Array.isArray(d.tpls) ? d.tpls.filter(r => r && ID_RE.test(r[0])).map(([id, t]) => [id, cleanTpl(t)]).filter(r => r[1]) : []);
+    if (Array.isArray(d.rolls)) onData(null, {t:'rolls', list:d.rolls});
+    if (!S.ready) S.fitted = false;
+    S.ready = true;
+    applyBoard(); renderTokCard(); if (S.panel.mode !== 'edit') renderSide();
+  } else if (d.t === 'drag'){
+    if (!ID_RE.test(String(d.id))) return;
+    if (d.end) S.peerDrag.delete(d.id);
+    else if (isFinite(d.x) && isFinite(d.y)) S.peerDrag.set(d.id, {x:+d.x, y:+d.y, at:Date.now()});
+    renderTokens();
+  } else if (d.t === 'count'){
+    S.players = +d.n || 0; renderPeers();
+  } else if (d.t === 'ruler'){
+    const k = String(d.k || '').slice(0, 50); if (!k) return;
+    if (d.clear || !okPt(d.a) || !okPt(d.b)) S.rulers.delete(k);
+    else S.rulers.set(k, {a:d.a.map(Number), b:d.b.map(Number), name:String(d.name || '').slice(0, 40), at:Date.now()});
+    renderRulers();
+  } else if (d.t === 'tdrag'){
+    if (!ID_RE.test(String(d.id))) return;
+    if (d.g && typeof d.g === 'object'){ const g = {}; ['x','y','size','angle','opacity'].forEach(k => { if (isFinite(d.g[k])) g[k] = +d.g[k]; }); S.tplDrag.set(d.id, {g, at:Date.now()}); }
+    else S.tplDrag.delete(d.id);
+    renderTpls(); renderTokens();
+  } else if (d.t === 'rolls'){
+    if (!Array.isArray(d.list)) return;
+    const list = d.list.filter(r => r && ID_RE.test(String(r.id)) && r.spec && typeof r.spec.label === 'string' && ['pend','ok','no'].includes(r.status)).slice(-40);
+    const okBefore = new Set(S.rolls.filter(r => r.status === 'ok').map(r => r.id));
+    S.rolls = list;
+    if (S.ready) list.filter(r => r.status === 'ok' && !okBefore.has(r.id)).forEach(r => { announceRoll(r); r.spec.save ? playSaveFx(r) : playAttackFx(r); });
+    renderDiceBadge(); if (S.tab === 'dados') renderSide();
+  } else if (d.t === 'deny'){
+    toast(String(d.msg || 'El máster no permite ese cambio.').slice(0, 120));
+  }
+}
+
+function hostId(){
+  let id = lsGet('tm-mesa');
+  if (!id || !/^[a-z0-9]{8,24}$/.test(id)){ id = Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 6); lsSet('tm-mesa', id); }
+  return id;
+}
+const peerName = id => 'mundodisco-' + id;
+function inviteLink(){ return location.origin + location.pathname + '?mesa=' + hostId(); }
+
+function setStatus(txt){ S.status = txt; $('#who').textContent = txt; renderEmpty(); }
+function countPlayers(){ S.players = [...conns].filter(c => c.open && c.pid).length; renderPeers(); broadcast({t:'count', n:S.players + 1}); }
+const onlinePids = () => new Set([...conns].filter(c => c.open && c.pid).map(c => c.pid));
+
+function startHost(){
+  if (typeof Peer === 'undefined'){ setStatus('Máster · sin conexión'); toast('No se ha podido cargar la conexión. Revisa tu internet y recarga.'); return; }
+  peer = new Peer(peerName(hostId()), {debug:0});
+  peer.on('open', () => setStatus('Máster · mesa abierta'));
+  peer.on('connection', conn => {
+    conn.on('open', () => { conns.add(conn); });
+    conn.on('data', d => onData(conn, d));
+    const gone = () => { if (conns.delete(conn)) { countPlayers(); renderInvitePeople(); } };
+    conn.on('close', gone); conn.on('error', gone);
+  });
+  peer.on('disconnected', () => { setStatus('Máster · reconectando…'); setTimeout(() => { try { peer.reconnect(); } catch(e){} }, 2000); });
+  peer.on('error', e => {
+    if (e.type === 'unavailable-id') setStatus('Ya tienes la mesa abierta en otra pestaña');
+    else if (e.type === 'browser-incompatible') setStatus('Este navegador no sirve para abrir la mesa');
+    else if (['network','server-error','socket-error','socket-closed'].includes(e.type)) setStatus('Máster · reconectando…');
+  });
+}
+
+let retryTm = null;
+function startPlayer(){
+  if (typeof Peer === 'undefined'){ setStatus('Sin conexión'); toast('No se ha podido cargar la conexión. Revisa tu internet y recarga.'); return; }
+  setStatus('Conectando con la mesa…');
+  peer = new Peer({debug:0});
+  peer.on('open', connectToHost);
+  peer.on('disconnected', () => setTimeout(() => { try { peer.reconnect(); } catch(e){} }, 2000));
+  peer.on('error', e => {
+    if (e.type === 'peer-unavailable'){ setStatus('Esperando a que el máster abra la mesa…'); retry(); }
+    else if (['network','server-error','socket-error','socket-closed'].includes(e.type)){ setStatus('Sin conexión · reintentando…'); retry(); }
+  });
+}
+function retry(){ clearTimeout(retryTm); retryTm = setTimeout(() => { if (peer && !peer.disconnected) connectToHost(); }, 4000); }
+function hello(){ const m = me(); send(hostConn, {t:'hello', pid:m.id, name:m.name}); }
+function connectToHost(){
+  if (hostConn && hostConn.open) return;
+  const c = peer.connect(peerName(TABLE), {reliable:true});
+  hostConn = c;
+  c.on('open', () => { setStatus('Jugador · ' + (me().name || 'en la mesa')); hello(); });
+  c.on('data', d => onData(null, d));
+  c.on('close', () => { if (hostConn === c){ hostConn = null; setStatus('La mesa se ha cerrado · esperando al máster…'); retry(); } });
+  c.on('error', () => { if (hostConn === c){ hostConn = null; retry(); } });
+}
+
+/* =========================================================
+   Guardado en el navegador del máster
+   ========================================================= */
+let idb = null;
+function openIDB(){
+  return new Promise(res => {
+    try {
+      const r = indexedDB.open('tablero-mundodisco', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => res(r.result); r.onerror = () => res(null);
+    } catch(e){ res(null); }
+  });
+}
+function snapshot(){
+  const imgs = {}; for (const [id, d] of S.imgs) if (isUsed(id)) imgs[id] = d;
+  return {v:6, pages:[...S.pages], playerPage:S.playerPage, viewPage:S.viewPage, tpls:[...S.tpls], rolls:S.rolls.slice(-40), init:S.init, tokens:[...S.tokens], entries:[...S.entries], people:[...S.people], imgs};
+}
+let saveTm = null;
+function saveSoon(){ if (!HOST) return; clearTimeout(saveTm); saveTm = setTimeout(saveNow, 700); }
+function saveNow(){
+  if (!idb) return;
+  try { const tx = idb.transaction('kv', 'readwrite'); tx.objectStore('kv').put(snapshot(), 'state'); tx.onerror = () => toast('No se ha podido guardar en este navegador. Descarga una copia.'); } catch(e){}
+}
+function loadState(st){
+  if (!st || typeof st !== 'object') return false;
+  S.board = {...DEF_BOARD, ...(st.board || {})};
+  S.tokens = new Map(Array.isArray(st.tokens) ? st.tokens : []);
+  S.entries = new Map(Array.isArray(st.entries) ? st.entries : []);
+  S.people = new Map(Array.isArray(st.people) ? st.people : []);
+  S.init = cleanInit(st.init);
+  S.tpls = new Map(Array.isArray(st.tpls) ? st.tpls.map(([id, t]) => [id, cleanTpl(t)]).filter(r => r[1]) : []);
+  S.rolls = Array.isArray(st.rolls) ? st.rolls.filter(r => r && r.spec).map(r => r.status === 'pend' ? {...r, status:'no'} : r) : [];
+  S.imgs = new Map(Object.entries(st.imgs || {}).filter(([id, d]) => validImg(id, d)));
+  S.pages = new Map(Array.isArray(st.pages) ? st.pages.filter(r => r && ID_RE.test(String(r[0]))).map(([id, pg]) => [id, cleanPage(pg)]) : []);
+  S.playerPage = st.playerPage; S.viewPage = st.viewPage;
+  ensurePages();
+  return true;
+}
+function isUsed(id, forPlayers = false){
+  if (forPlayers){
+    const pg = S.pages.get(S.playerPage); if (pg && pg.map === id) return true;
+    for (const t of S.tokens.values()) if (t.img && t.img.ref === id && playerVisibleTok(t)) return true;
+  } else {
+    if (S.board.map === id) return true;
+    for (const pg of S.pages.values()) if (pg.map === id) return true;
+    for (const t of S.tokens.values()) if (t.img && t.img.ref === id) return true;
+  }
+  for (const e of S.entries.values()) if (e.img && e.img.ref === id && !(forPlayers && secret(e))) return true;
+  return false;
+}
+
+/* =========================================================
+   Cambios: se aplican aquí y se mandan a los demás
+   ========================================================= */
+function applyOp(path, data, mode){
+  const [col, id] = path.split('/');
+  if (col === 'tpl'){
+    const prev = S.tpls.get(id);
+    if (mode === 'del'){ S.tpls.delete(id); if (S.tplSel === id) S.tplSel = null; }
+    else { const t = cleanTpl(mode === 'set' ? data : {...(S.tpls.get(id) || {}), ...data}); if (t) S.tpls.set(id, t); }
+    renderTpls(); renderTokens(); renderAreaBox();
+    const nt = S.tpls.get(id);
+    if (mode !== 'del' && nt && nt.status === 'ok' && (!prev || prev.status !== 'ok') && onView(nt)) fxArea(nt);
+    return;
+  }
+  if (col === 'init'){ if (!HOST && mode === 'set') setInit(data); return; }
+  if (col === 'page'){
+    if (!HOST) return;
+    if (mode === 'del') S.pages.delete(id);
+    else S.pages.set(id, cleanPage(mode === 'set' ? data : {...S.pages.get(id), ...data}));
+    if (id === S.viewPage && S.pages.has(id)){ syncBoard(); applyBoard(); renderFogBox(); }
+    renderPageUI(); return;
+  }
+  if (col === 'board'){ S.board = {...DEF_BOARD, ...(mode === 'del' ? {} : mode === 'set' ? data : {...S.board, ...data})}; applyBoard(); return; }
+  const m = col === 'tokens' ? S.tokens : S.entries;
+  if (mode === 'del') m.delete(id); else m.set(id, mode === 'set' ? {...data} : {...(m.get(id) || {}), ...data});
+  if (col === 'tokens'){ renderTokens(); renderTokCard(); renderInit(); }
+  else { if (S.panel.mode !== 'edit') renderSide(); renderTokens(); renderTokCard(); }
+}
+// ¿puede este navegador cambiar esto?
+function canChange(path){
+  if (HOST) return true;
+  const [col, id] = path.split('/');
+  if (col === 'tpl'){ const t = S.tpls.get(id); return !t || t.owner === me().id; }
+  return col === 'entries' && !!(S.entries.get(id) || {}).mine;
+}
+function write(path, data, mode='set'){
+  if (!canChange(path)){ toast('Solo el máster puede cambiar eso.'); return false; }
+  if (!HOST && !(hostConn && hostConn.open)){ toast('No estás conectado a la mesa. Espera a que vuelva la conexión.'); return false; }
+  applyOp(path, data, mode);
+  if (HOST){ pushImages(); publish(path, mode, null); saveSoon(); }
+  else send(hostConn, {t:'op', path, data, mode});
+  return true;
+}
+// las fichas del mapa siguen el nombre y el retrato de su hoja (lo hace el máster)
+// el máster manda a los jugadores las imágenes que ya pueden ver y aún no tienen
+function pushImages(){
+  if (!HOST) return;
+  for (const c of conns){
+    if (!c.open || !c.pid) continue;
+    let set = sentImgs.get(c); if (!set){ set = new Set(); sentImgs.set(c, set); }
+    for (const [id, data] of S.imgs) if (!set.has(id) && isUsed(id, true)){ set.add(id); send(c, {t:'img', id, data}); }
+  }
+}
+function syncLinkedTokens(entryId){
+  if (!HOST) return;
+  const e = S.entries.get(entryId); if (!e) return;
+  for (const [tid, t] of S.tokens) if (t.entry === entryId && (t.name !== e.name || imgSrc(t.img) !== imgSrc(e.img))) write('tokens/'+tid, {...t, name:e.name, img:e.img || null});
+}
+function addImage(data){
+  const id = uid(); S.imgs.set(id, data);
+  if (!HOST) send(hostConn, {t:'img', id, data});
+  saveSoon(); return {ref:id};
+}
+function refreshImages(){ applyBoard(); renderTokCard(); if (S.panel.mode !== 'edit') renderSide(); }
+
+setInterval(() => { // limpia arrastres ajenos que se quedaron colgados
+  let ch = false; const now = Date.now();
+  for (const [id, p] of S.peerDrag) if (now - p.at > 2500){ S.peerDrag.delete(id); ch = true; }
+  for (const [id, p] of S.tplDrag) if (!p.mine && now - p.at > 2500){ S.tplDrag.delete(id); ch = true; }
+  let rc = false; for (const [k, r] of S.rulers) if (now - r.at > 4500){ S.rulers.delete(k); rc = true; }
+  if (rc) renderRulers();
+  if (rulerHold) sendRuler();
+  if (ch) renderTpls();
+  if (ch) renderTokens();
+}, 1000);
+
+/* ---------------- images ---------------- */
+const imgSrc = img => (img && img.ref && S.imgs.get(img.ref)) || '';
+function pickFile(){
+  return new Promise(res => { const fi = $('#filein'); fi.value = ''; fi.onchange = () => res(fi.files[0] || null); fi.click(); });
+}
+function loadImg(file){
+  return new Promise((res, rej) => { const u = URL.createObjectURL(file); const im = new Image();
+    im.onload = () => res({im, u}); im.onerror = () => { URL.revokeObjectURL(u); rej(); }; im.src = u; });
+}
+async function shrinkToData(file, max, q){
+  const {im, u} = await loadImg(file);
+  const k = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight));
+  const c = document.createElement('canvas'); c.width = Math.round(im.naturalWidth*k); c.height = Math.round(im.naturalHeight*k);
+  c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(u);
+  let data = c.toDataURL('image/webp', q);
+  if (!data.startsWith('data:image/webp')) data = c.toDataURL('image/jpeg', q); // Safari antiguo
+  return {data, w:c.width, h:c.height};
+}
+async function pickPortrait(){
+  const f = await pickFile(); if (!f) return null;
+  try { const {data} = await shrinkToData(f, 400, .85); return addImage(data); }
+  catch(e){ toast('No se ha podido leer esa imagen. Usa PNG, JPG o WEBP.'); return null; }
+}
+
+/* ---------------- view / board ---------------- */
+function worldSize(){
+  const b = S.board;
+  if (b.map && b.mapW) return {w:b.mapW, h:b.mapH};
+  return {w: b.ox + b.cols*b.grid, h: b.oy + b.rows*b.grid};
+}
+function applyView(){
+  const v = S.view;
+  world.style.transform = `translate(${v.x}px,${v.y}px) scale(${v.s})`;
+  $('#zlbl').textContent = Math.round(v.s*100) + '%';
+}
+function fit(){
+  userMoved = false;
+  const r = vp.getBoundingClientRect(), {w, h} = worldSize();
+  if (!r.width) return;
+  const s = Math.max(.1, Math.min(3, Math.min((r.width-32)/w, (r.height-32)/h)));
+  S.view = {s, x:(r.width - w*s)/2, y:(r.height - h*s)/2}; applyView();
+}
+function zoomAt(cx, cy, f){
+  const r = vp.getBoundingClientRect(), v = S.view;
+  const ns = Math.max(.1, Math.min(4, v.s*f)); const mx = cx - r.left, my = cy - r.top;
+  v.x = mx - (mx - v.x)*(ns/v.s); v.y = my - (my - v.y)*(ns/v.s); v.s = ns; applyView();
+}
+const toWorld = (cx, cy) => { const r = vp.getBoundingClientRect(); return {x:(cx - r.left - S.view.x)/S.view.s, y:(cy - r.top - S.view.y)/S.view.s}; };
+const cell2px = (x, y) => ({x: S.board.ox + x*S.board.grid, y: S.board.oy + y*S.board.grid});
+
+function applyBoard(){
+  const b = S.board, {w, h} = worldSize();
+  const img = $('#mapimg'), src = b.map ? (S.imgs.get(b.map) || '') : '';
+  if (src){ img.hidden = false; if (img.dataset.id !== b.map){ img.src = src; img.dataset.id = b.map; } img.style.width = w+'px'; img.style.height = h+'px'; }
+  else { img.hidden = true; img.removeAttribute('src'); img.dataset.id = ''; }
+  const paper = $('#paper'); paper.style.width = w+'px'; paper.style.height = h+'px';
+  const g = $('#grid'); g.style.width = w+'px'; g.style.height = h+'px';
+  const lc = b.gridTone === 'light' ? 'rgba(255,255,255,.55)' : b.gridTone === 'none' ? 'rgba(127,110,90,.18)' : 'var(--gridline)';
+  g.style.backgroundImage = `linear-gradient(to right, ${lc} 1px, transparent 1px), linear-gradient(to bottom, ${lc} 1px, transparent 1px)`;
+  g.style.backgroundSize = `${b.grid}px ${b.grid}px`;
+  g.style.backgroundPosition = `${b.ox}px ${b.oy}px`;
+  if (HOST || !localGridOverride) g.hidden = !b.showGrid;
+  $('#gridbtn').setAttribute('aria-pressed', String(!g.hidden));
+  renderTpls(); renderFog(); renderTokens(); renderRulers(); renderEmpty();
+  if (!S.fitted){ S.fitted = true; fit(); }
+}
+let localGridOverride = false;
+
+/* ---------------- tokens ---------------- */
+function renderTokens(){
+  const g = S.board.grid, live = new Set();
+  for (const [id, t] of S.tokens){
+    if (!onView(t)) continue;
+    live.add(id);
+    let el = tokEls.get(id);
+    if (!el){
+      el = document.createElement('div'); el.className = 'token'; el.dataset.id = id;
+      el.innerHTML = '<div class="hpbar" hidden><i></i></div><div class="disc"></div><div class="nm"></div><div class="conds"></div>';
+      $('#tokens').appendChild(el); tokEls.set(id, el);
+    }
+    const size = (+t.size || 1)*g;
+    el.style.width = size+'px'; el.style.height = size+'px';
+    el.style.setProperty('--c', COLORS.includes(t.color) ? t.color : COLORS[0]);
+    el.style.setProperty('--fs', Math.max(11, Math.round(g*.2)) + 'px');
+    const disc = el.querySelector('.disc'), src = imgSrc(t.img);
+    if (disc.dataset.src !== src || !disc.firstChild){
+      disc.dataset.src = src;
+      disc.innerHTML = src ? `<img alt="" src="${esc(src)}">` : `<span>${esc((t.name||'?').trim().charAt(0).toUpperCase())}</span>`;
+    }
+    el.querySelector('.nm').textContent = t.name || 'Sin nombre';
+    decorateToken(el, t);
+    el.classList.toggle('sel', S.sel === id);
+    el.classList.toggle('turn', curTurnTok() === id);
+    el.classList.toggle('tgt', !!(targeting && targeting.multi && targeting.picks.includes(id)));
+    if (HOST){ const sz = +t.size || 1; el.classList.toggle('fogged', !!(S.board.fog && S.board.fog.on) && !pcEntry(t) && fogHidden(S.board.fog, (+t.x || 0) + sz/2, (+t.y || 0) + sz/2)); }
+    const ac = S.tpls.size ? tokenAreaColor(id, t) : null;
+    el.classList.toggle('inarea', !!ac); if (ac) el.style.setProperty('--ac', ac);
+    if (!(drag && drag.id === id)){
+      const pd = S.peerDrag.get(id);
+      const p = pd ? pd : cell2px(+t.x||0, +t.y||0);
+      el.style.left = p.x+'px'; el.style.top = p.y+'px';
+      el.classList.toggle('remote', !!pd);
+    }
+  }
+  for (const [id, el] of tokEls) if (!live.has(id)){ el.remove(); tokEls.delete(id); }
+}
+
+function centerCell(){
+  const r = vp.getBoundingClientRect(), w = toWorld(r.left + r.width/2, r.top + r.height/2), b = S.board;
+  return {x: Math.max(0, Math.round((w.x - b.ox)/b.grid)), y: Math.max(0, Math.round((w.y - b.oy)/b.grid))};
+}
+function addToken(data){
+  const id = uid(), c = centerCell();
+  if (write('tokens/'+id, {x:c.x, y:c.y, size:1, color:COLORS[0], ...data, page:S.viewPage})){ S.sel = id; renderTokens(); renderTokCard(); }
+}
+
+/* pointer: drag tokens, pan, pinch */
+const ptrs = new Map(); let drag = null, pan = null, pinch = null, lastSend = 0;
+vp.addEventListener('contextmenu', e => e.preventDefault());
+vp.addEventListener('pointerdown', e => {
+  if (e.button === 1 || e.button === 2){
+    ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY}); vp.setPointerCapture(e.pointerId);
+    pan = {sx:e.clientX, sy:e.clientY, vx:S.view.x, vy:S.view.y, moved:false, tok:null, right:true}; vp.classList.add('panning'); return;
+  }
+  if (e.button > 0) return;
+  ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  vp.setPointerCapture(e.pointerId);
+  if (ptrs.size === 2){
+    if (drag){ drag.el.classList.remove('lifted'); drag = null; tokRuler = null; renderTokens(); }
+    if (tplDrag){ S.tplDrag.delete(tplDrag.id); tplDrag = null; renderTpls(); }
+    if (rulerHold){ rulerHold = false; myRuler = null; sendRuler(); }
+    if (fogDraft){ fogDraft = null; renderFog(); }
+    renderRulers();
+    pan = null;
+    const [a, b] = [...ptrs.values()];
+    pinch = {d: Math.hypot(a.x-b.x, a.y-b.y)}; return;
+  }
+  if (placing){ const w = toWorld(e.clientX, e.clientY); placeAt(w.x, w.y); ptrs.delete(e.pointerId); return; }
+  if (targeting){
+    const tk0 = e.target.closest('.token');
+    if (tk0 && targeting.multi){
+      const id = tk0.dataset.id, pk = targeting.picks;
+      targeting.picks = pk.includes(id) ? pk.filter(x => x !== id) : [...pk, id];
+      ptrs.delete(e.pointerId); renderTargetBar(); renderTokens(); return;
+    }
+    if (tk0){ const req = targeting; endTargeting(); ptrs.delete(e.pointerId); askRoll({...req, to:tk0.dataset.id}, true); return; }
+  }
+  if (rulerOn){ rulerDown(e); return; }
+  if (fogEditing()){ fogDown(e); return; }
+  const tk = e.target.closest('.token');
+  if (!tk && tplPointerDown(e)) return;
+  if (tk && HOST){
+    const id = tk.dataset.id, t = S.tokens.get(id); if (!t) return;
+    const w = toWorld(e.clientX, e.clientY), p = cell2px(+t.x||0, +t.y||0);
+    const half = (+t.size || 1) * S.board.grid / 2;
+    drag = {id, el:tk, dx:w.x-p.x, dy:w.y-p.y, sx:e.clientX, sy:e.clientY, moved:false, px:p.x, py:p.y, half, c0:[p.x + half, p.y + half], sent:false};
+  } else {
+    pan = {sx:e.clientX, sy:e.clientY, vx:S.view.x, vy:S.view.y, moved:false, tok: tk ? tk.dataset.id : null};
+    vp.classList.add('panning');
+  }
+});
+vp.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if (pinch && ptrs.size === 2){
+    const [a, b] = [...ptrs.values()], d = Math.hypot(a.x-b.x, a.y-b.y);
+    zoomAt((a.x+b.x)/2, (a.y+b.y)/2, d/pinch.d); pinch.d = d; return;
+  }
+  if (rulerMove(e)) return;
+  if (fogMove(e)) return;
+  if (tplPointerMove(e)) return;
+  if (drag){
+    if (!drag.moved && Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy) < 4) return;
+    if (!drag.moved){ drag.moved = true; drag.el.classList.add('lifted'); }
+    const w = toWorld(e.clientX, e.clientY);
+    drag.px = w.x - drag.dx; drag.py = w.y - drag.dy;
+    drag.el.style.left = drag.px+'px'; drag.el.style.top = drag.py+'px';
+    tokRuler = {a:drag.c0, b:[drag.px + drag.half, drag.py + drag.half]}; renderRulers();
+    const now = Date.now();
+    if (now - lastSend > 80){
+      lastSend = now;
+      if (dragVisible(drag.id, drag.px, drag.py)){ drag.sent = true; toNet({t:'drag', id:drag.id, x:Math.round(drag.px), y:Math.round(drag.py)}); }
+      else if (drag.sent){ drag.sent = false; toNet({t:'drag', id:drag.id, end:true}); }
+    }
+  } else if (pan){
+    const dx = e.clientX - pan.sx, dy = e.clientY - pan.sy;
+    if (Math.abs(dx) + Math.abs(dy) > 3) pan.moved = true;
+    S.view.x = pan.vx + dx; S.view.y = pan.vy + dy; applyView();
+  }
+});
+function endPtr(e){
+  ptrs.delete(e.pointerId);
+  if (ptrs.size < 2) pinch = null;
+  if (rulerUp()) return;
+  if (fogUp()) return;
+  if (tplPointerUp()) return;
+  if (drag){
+    const d = drag; drag = null; d.el.classList.remove('lifted');
+    if (tokRuler){ tokRuler = null; renderRulers(); }
+    if (!d.moved){ select(d.id); }
+    else {
+      const b = S.board, t = S.tokens.get(d.id);
+      let x = (d.px - b.ox)/b.grid, y = (d.py - b.oy)/b.grid;
+      if (S.snap){ const st = (+t?.size||1) < 1 ? .5 : 1; x = Math.round(x/st)*st; y = Math.round(y/st)*st; }
+      else { x = Math.round(x*100)/100; y = Math.round(y*100)/100; }
+      toNet({t:'drag', id:d.id, end:true});
+      if (!write('tokens/'+d.id, {x, y}, 'update')) renderTokens();
+    }
+  }
+  if (pan){
+    if (pan.right){ /* solo mover el mapa */ }
+    else if (!pan.moved && pan.tok) select(pan.tok);
+    else if (!pan.moved && S.sel){ S.sel = null; renderTokens(); renderTokCard(); }
+    pan = null; vp.classList.remove('panning');
+  }
+}
+vp.addEventListener('pointerup', endPtr);
+vp.addEventListener('pointercancel', endPtr);
+vp.addEventListener('wheel', e => { e.preventDefault(); zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY*0.0015)); }, {passive:false});
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input,textarea,select')) return;
+  if (e.key === 'Escape' && placing){ placing = null; vp.classList.remove('placing'); renderAreaBox(); return; }
+  if (e.key === 'Escape' && targeting){ endTargeting(); return; }
+  if (e.key === 'Escape' && rulerOn){ setRulerMode(false); return; }
+  if (e.key === 'Escape'){ document.querySelectorAll('.sheet').forEach(s => s.hidden = true); if (S.sel){ S.sel = null; renderTokens(); renderTokCard(); } }
+});
+
+function select(id){ S.sel = id; renderTokens(); renderTokCard(); if (window.innerWidth <= 860) showSide(true); }
+
+/* =========================================================
+   Vida y estados de las fichas
+   Personajes: PG y estados viven en su hoja (el jugador puede cambiarlos).
+   Resto: cada ficha tiene los suyos; el máster decide si los jugadores ven la vida.
+   ========================================================= */
+const CONDS = [
+  ['agarrado','Agarrado','Ag'],['apresado','Apresado','Ap'],['asustado','Asustado','As'],['aturdido','Aturdido','At'],
+  ['cegado','Cegado','Ce'],['derribado','Derribado','De'],['ensordecido','Ensordecido','En'],['envenenado','Envenenado','Ev'],
+  ['hechizado','Hechizado','He'],['incapacitado','Incapacitado','In'],['inconsciente','Inconsciente','Ic'],['invisible','Invisible','Iv'],
+  ['paralizado','Paralizado','Pa'],['petrificado','Petrificado','Pe'],['concentracion','Concentración','Co']];
+const COND_KEYS = new Set(CONDS.map(c => c[0]));
+const numOr = (v, d) => v === '' || v === null || v === undefined || !isFinite(v) ? d : +v;
+
+function pcEntry(t){ const e = t && t.entry && S.entries.get(t.entry); return e && e.kind === 'personaje' ? e : null; }
+function vitals(t){
+  const e = pcEntry(t), src = e || t || {};
+  const hpMax = numOr(e ? src.pgmax : src.hpMax, null);
+  let hp = numOr(e ? src.pg : src.hp, null);
+  if (hp === null && hpMax !== null) hp = hpMax;
+  const conds = Array.isArray(src.conds) ? src.conds.filter(c => COND_KEYS.has(c)) : [];
+  const exh = Math.max(0, Math.min(6, Math.round(numOr(src.exh, 0))));
+  return {hp, hpMax, conds, exh, fromSheet: !!e, entryId: e ? t.entry : null, mine: !!(e && e.mine), pub: !!e || !!(t && t.hpPublic)};
+}
+function canEditVitals(t){ const v = vitals(t); return HOST || (v.fromSheet && v.mine); }
+function setVitals(tokId, patch){
+  const t = S.tokens.get(tokId); if (!t) return;
+  const v = vitals(t);
+  if (v.fromSheet){
+    const e = {...S.entries.get(v.entryId)};
+    if ('hp' in patch) e.pg = patch.hp;
+    if ('hpMax' in patch) e.pgmax = patch.hpMax;
+    if ('conds' in patch) e.conds = patch.conds;
+    if ('exh' in patch) e.exh = patch.exh;
+    write('entries/' + v.entryId, e);
+  } else write('tokens/' + tokId, patch, 'update');
+}
+// lo que reciben los jugadores de una ficha: sin su vida si el máster la tiene oculta
+function tokenFor(t){
+  if (!t || pcEntry(t) || t.hpPublic) return t;
+  const c = {...t}; delete c.hp; delete c.hpMax; return c;
+}
+
+function hpColor(p){ return p > .5 ? 'var(--hp-ok)' : p > .25 ? 'var(--brass)' : 'var(--seal)'; }
+function decorateToken(el, t){
+  const v = vitals(t), bar = el.querySelector('.hpbar'), conds = el.querySelector('.conds');
+  const showBar = v.hpMax > 0 && v.hp !== null;
+  bar.hidden = !showBar;
+  if (showBar){
+    const p = Math.max(0, Math.min(1, v.hp / v.hpMax));
+    bar.firstChild.style.width = (p*100) + '%'; bar.firstChild.style.background = hpColor(p);
+    bar.classList.toggle('priv', HOST && !v.pub);
+    bar.title = `${v.hp} / ${v.hpMax} PG` + (HOST && !v.pub ? ' (oculta a los jugadores)' : '');
+  }
+  el.classList.toggle('down', showBar && v.hp <= 0);
+  const badges = CONDS.filter(c => v.conds.includes(c[0])).map(c => `<span class="cb${c[0] === 'concentracion' ? ' conc' : ''}" title="${c[1]}">${c[2]}</span>`);
+  if (v.exh) badges.push(`<span class="cb exh" title="Agotamiento ${v.exh}">A${v.exh}</span>`);
+  const html = badges.join('');
+  if (conds.dataset.h !== html){ conds.innerHTML = html; conds.dataset.h = html; }
+}
+
+function vitalsHTML(t){
+  const v = vitals(t), ed = canEditVitals(t);
+  if (!ed && v.hp === null && !v.conds.length && !v.exh) return '';
+  const p = v.hpMax ? Math.max(0, Math.min(1, v.hp / v.hpMax)) : 0;
+  const hpLine = ed
+    ? `<input class="vnum" id="v-hp" type="number" inputmode="numeric" value="${v.hp ?? ''}" aria-label="PG actuales"> <span>/</span> <input class="vnum" id="v-max" type="number" inputmode="numeric" min="1" value="${v.hpMax ?? ''}" aria-label="PG máximos" placeholder="máx.">`
+    : (v.hp !== null ? `<b class="vread">${v.hp} / ${v.hpMax}</b>` : '<span class="vnone">Sin datos</span>');
+  const shownConds = CONDS.filter(c => v.conds.includes(c[0]));
+  const addable = CONDS.filter(c => !v.conds.includes(c[0]));
+  return `<div class="vit">
+    <div class="vrow"><span class="eyebrow">PG</span>${hpLine}
+      ${v.hpMax ? `<span class="vbar"><i style="width:${p*100}%;background:${hpColor(p)}"></i></span>` : ''}</div>
+    ${ed ? `<div class="vrow"><input class="vnum wide" id="v-amt" type="number" inputmode="numeric" min="0" placeholder="Cantidad" aria-label="Cantidad de daño o curación">
+      <button class="btn danger" id="v-dmg">Daño</button><button class="btn" id="v-heal">Curar</button></div>` : ''}
+    ${HOST && !v.fromSheet ? `<label class="vpub"><input type="checkbox" id="v-pub" ${t.hpPublic ? 'checked' : ''}> Los jugadores ven su vida</label>` : ''}
+    ${shownConds.length || ed ? `<div class="chips">${shownConds.map(c => `<button class="chip" data-cond="${c[0]}" aria-pressed="true" ${ed ? `title="Quitar ${c[1]}"` : 'disabled'}>${c[1]}${ed ? ' ×' : ''}</button>`).join('')}
+      ${ed ? `<select class="search addcond" id="v-add" aria-label="Añadir estado"><option value="">+ Estado…</option>${addable.map(c => `<option value="${c[0]}">${c[1]}</option>`).join('')}</select>
+      <select class="search addcond" id="v-exh" aria-label="Agotamiento">${[0,1,2,3,4,5,6].map(n => `<option value="${n}" ${n === v.exh ? 'selected' : ''}>${n === 0 ? 'Sin agotamiento' : 'Agotamiento ' + n}</option>`).join('')}</select>` : ''}</div>` : ''}
+    ${!ed && v.exh ? `<div class="vnone">Agotamiento: nivel ${v.exh}</div>` : ''}
+  </div>`;
+}
+function bindVitals(id){
+  const t = S.tokens.get(id); if (!t || !canEditVitals(t)) return;
+  const amt = () => Math.max(0, Math.round(+($('#v-amt').value || 0)));
+  const cur = () => vitals(S.tokens.get(id));
+  $('#v-hp').onchange = e => { const n = e.target.value.trim(); setVitals(id, {hp: n === '' ? null : Math.round(+n)}); };
+  $('#v-max').onchange = e => { const n = e.target.value.trim(); setVitals(id, {hpMax: n === '' ? null : Math.max(1, Math.round(+n))}); };
+  $('#v-dmg').onclick = () => { const a = amt(), v = cur(); if (!a || v.hp === null) return; setVitals(id, {hp: Math.max(0, v.hp - a)}); $('#v-amt').value = ''; };
+  $('#v-heal').onclick = () => { const a = amt(), v = cur(); if (!a) return; const base = v.hp ?? 0; setVitals(id, {hp: v.hpMax ? Math.min(v.hpMax, base + a) : base + a}); $('#v-amt').value = ''; };
+  $('#v-amt').onkeydown = e => { if (e.key === 'Enter') $('#v-dmg').click(); };
+  if ($('#v-pub')) $('#v-pub').onchange = e => write('tokens/' + id, {hpPublic: e.target.checked}, 'update');
+  document.querySelectorAll('#tokcard .chip').forEach(b => b.onclick = () => {
+    const v = cur(), k = b.dataset.cond;
+    setVitals(id, {conds: v.conds.includes(k) ? v.conds.filter(c => c !== k) : [...v.conds, k]});
+  });
+  $('#v-exh').onchange = e => setVitals(id, {exh: +e.target.value});
+  $('#v-add').onchange = e => { const k = e.target.value; if (k) setVitals(id, {conds:[...cur().conds, k]}); };
+}
+
+/* ---------------- token card ---------------- */
+function portraitHTML(img, name, color){
+  const src = imgSrc(img);
+  return `<div class="portrait" style="--c:${esc(color||'var(--octarine)')}">${src ? `<img alt="" src="${esc(src)}">` : esc((name||'?').trim().charAt(0).toUpperCase())}</div>`;
+}
+function renderTokCard(){
+  const box = $('#tokcard'), t = S.sel && S.tokens.get(S.sel);
+  if (!t){ box.hidden = true; box.innerHTML = ''; S.sel = null; return; }
+  const ae = document.activeElement;
+  if (box.contains(ae) && ae.tagName === 'INPUT' && ae.type !== 'checkbox' && box.dataset.for === S.sel){ box.dataset.stale = '1'; return; } // no pisar lo que se está escribiendo
+  box.dataset.stale = ''; box.dataset.for = S.sel;
+  box.hidden = false;
+  const linked = t.entry && S.entries.get(t.entry);
+  const atks = linked && (HOST || linked.mine) ? atkList(linked) : [];
+  const atkHTML = atks.length ? `<div class="eyebrow" style="margin-top:10px">Atacar</div><div class="rgrid one tkatk">${atks.map((a, i) => { const sp = rollSpec(linked, 'atq', i);
+    return `<button class="rb atk" data-tatk="${i}">${atkInner(a, sp)}</button>`; }).join('')}</div>` : '';
+  const bindAtk = () => box.querySelectorAll('[data-tatk]').forEach(b => b.onclick = () => askRoll({entry:t.entry, kind:'atq', key:b.dataset.tatk, from:S.sel}));
+  if (!HOST){
+    box.innerHTML = `<div class="head">${portraitHTML(t.img, t.name, COLORS.includes(t.color) ? t.color : COLORS[0])}
+      <div style="flex:1;min-width:0"><div class="eyebrow">Ficha en el mapa</div><div class="tkname">${esc(t.name||'Sin nombre')}</div></div></div>
+      ${vitalsHTML(t)}
+      ${atkHTML}
+      ${linked ? `<div class="actions"><button class="btn" id="tk-open">${linked.mine ? 'Ver mi hoja' : 'Ver ' + (KINDS[linked.kind]?.one||'entrada')}</button></div>` : ''}`;
+    if (linked) $('#tk-open').onclick = () => { S.tab = linked.kind; S.panel = {mode:'view', id:t.entry}; showSide(true); renderSide(); };
+    bindVitals(S.sel); bindAtk();
+    return;
+  }
+  const sizeName = Object.entries(SIZES).find(([k, v]) => v === (+t.size||1) && k !== 'Pequeño')?.[0] || 'Mediano';
+  box.innerHTML = `
+    <div class="head">${portraitHTML(t.img, t.name, COLORS.includes(t.color) ? t.color : COLORS[0])}
+      <div style="flex:1;min-width:0">
+        <div class="eyebrow">Ficha en el mapa</div>
+        <input class="nm" id="tk-name" value="${esc(t.name||'')}" aria-label="Nombre de la ficha">
+      </div></div>
+    ${vitalsHTML(t)}
+    ${atkHTML}
+    <div class="row" style="margin-top:10px;justify-content:space-between">
+      <select class="search" id="tk-size" aria-label="Tamaño">${Object.keys(SIZES).filter(k=>k!=='Pequeño').map(k=>`<option ${k===sizeName?'selected':''}>${k}</option>`).join('')}</select>
+      <div class="swatches">${COLORS.map(c=>`<button class="sw" style="background:${c}" data-c="${c}" aria-label="Color" aria-pressed="${c===t.color}"></button>`).join('')}</div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="tk-init">${initHas(S.sel) ? 'Quitar de turnos' : 'Añadir a turnos'}</button>
+      <button class="btn" id="tk-img">Cambiar imagen</button>
+      ${linked ? `<button class="btn" id="tk-open">Ver ${KINDS[linked.kind]?.one||'entrada'}</button>` : ''}
+      ${S.pages.size > 1 ? `<select class="search" id="tk-page" aria-label="Llevar a otro mapa"><option value="">Llevar a otro mapa…</option>${[...S.pages].filter(([pid]) => pid !== S.viewPage).map(([pid, pg]) => `<option value="${esc(pid)}">${esc(pg.name)}</option>`).join('')}</select>` : ''}
+      <button class="btn danger" id="tk-del">Quitar del mapa</button>
+    </div>`;
+  const id = S.sel;
+  $('#tk-name').onchange = e => write('tokens/'+id, {name:e.target.value.trim() || 'Sin nombre'}, 'update');
+  $('#tk-size').onchange = e => write('tokens/'+id, {size:SIZES[e.target.value]}, 'update');
+  box.querySelectorAll('.sw').forEach(b => b.onclick = () => write('tokens/'+id, {color:b.dataset.c}, 'update'));
+  $('#tk-init').onclick = () => {
+    if (initHas(id)){ const r = S.init.rows.find(r => r.tok === id); initRemove(r.id); }
+    else { initAdd([id]); initOpen = true; renderInit(); }
+  };
+  $('#tk-img').onclick = async () => { const img = await pickPortrait(); if (img) write('tokens/'+id, {img}, 'update'); };
+  if ($('#tk-page')) $('#tk-page').onchange = e => { const pid = e.target.value; if (!pid) return; write('tokens/'+id, {page:pid}, 'update'); S.sel = null; renderTokCard(); toast(`Ficha llevada a «${S.pages.get(pid).name}»`); };
+  if (linked) $('#tk-open').onclick = () => { S.tab = linked.kind; S.panel = {mode:'view', id:t.entry}; showSide(true); renderSide(); };
+  twoStep($('#tk-del'), () => { if (write('tokens/'+id, null, 'del')){ S.sel = null; renderTokCard(); } });
+  bindVitals(id); bindAtk();
+}
+$('#tokcard').addEventListener('focusout', () => setTimeout(() => { const b = $('#tokcard'); if (b.dataset.stale && !b.contains(document.activeElement)) renderTokCard(); }, 0));
+function twoStep(btn, fn){
+  let armed = false, tm;
+  btn.onclick = () => {
+    if (armed){ clearTimeout(tm); armed = false; fn(); return; }
+    armed = true; const old = btn.textContent; btn.textContent = '¿Seguro? Pulsa otra vez';
+    tm = setTimeout(() => { armed = false; btn.textContent = old; }, 3000);
+  };
+}
+
+/* ---------------- compendium ---------------- */
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { S.tab = b.dataset.k; S.panel = {mode:'list'}; S.q=''; S.qClass=''; renderSide(); });
+const mod = v => { const n = Math.floor(((+v||10) - 10)/2); return (n >= 0 ? '+' : '') + n; };
+function subline(e){
+  if (e.kind === 'hechizo') return [e.escuela, e.clases].filter(Boolean).join(' · ');
+  if (e.kind === 'personaje'){
+    const who = HOST ? (e.owner && (S.people.get(e.owner) || {}).name) : e.ownerName;
+    return [e.raza, e.clase && (e.clase + (e.nivel ? ' '+e.nivel : '')), (who || e.player) && 'de ' + (who || e.player)].filter(Boolean).join(' · ');
+  }
+  return [e.tipo, e.vd && 'VD '+e.vd, e.ca && 'CA '+e.ca].filter(Boolean).join(' · ');
+}
+function renderSide(){
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.k === S.tab)));
+  const body = $('#sidebody'), k = S.tab;
+  renderDiceBadge();
+  if (k === 'dados') return renderDice(body);
+  if (S.panel.mode === 'view'){ const e = S.entries.get(S.panel.id); if (e) return renderView(body, S.panel.id, e); S.panel = {mode:'list'}; }
+  if (S.panel.mode === 'edit') return renderEdit(body, S.panel.id);
+  let items = [...S.entries].filter(([, e]) => e.kind === k);
+  const classes = k === 'hechizo' ? [...new Set(items.flatMap(([, e]) => String(e.clases||'').split(',').map(s => s.trim()).filter(Boolean)))].sort() : [];
+  const q = S.q.toLowerCase();
+  if (q) items = items.filter(([, e]) => String(e.name||'').toLowerCase().includes(q));
+  if (S.qClass) items = items.filter(([, e]) => String(e.clases||'').toLowerCase().split(',').map(s=>s.trim()).includes(S.qClass.toLowerCase()));
+  items.sort(([, a], [, b]) => (b.mine ? 1 : 0) - (a.mine ? 1 : 0) || (k === 'hechizo' ? ((+a.nivel||0) - (+b.nivel||0) || String(a.name||'').localeCompare(String(b.name||''))) : String(a.name||'').localeCompare(String(b.name||''))));
+  const empties = {
+    personaje:'Aún no hay personajes. Crea uno con su retrato y sus características, y luego ponlo en el mapa.',
+    hechizo:'Aún no hay hechizos. Añade los que usen tus jugadores; podrás filtrarlos por clase.',
+    ficha:'Aún no hay fichas guardadas. Guarda aquí PNJ y monstruos para sacarlos al mapa cuando los necesites.'};
+  body.innerHTML = `
+    <div class="row">
+      <input class="search" id="q" type="search" placeholder="Buscar por nombre" value="${esc(S.q)}" aria-label="Buscar">
+      ${classes.length ? `<select class="search" id="qc" aria-label="Filtrar por clase"><option value="">Todas las clases</option>${classes.map(c=>`<option ${c===S.qClass?'selected':''}>${esc(c)}</option>`).join('')}</select>` : ''}
+      ${HOST ? '<button class="btn primary" id="newbtn">+ Nuevo</button>' : ''}
+    </div>
+    ${items.length ? `<ul class="list">${items.map(([id, e]) => `
+      <li data-id="${esc(id)}" tabindex="0">
+        ${k === 'hechizo' ? `<span class="lvl" title="Nivel">${(+e.nivel||0) === 0 ? 'T' : esc(e.nivel)}</span>` :
+          `<span class="thumb">${imgSrc(e.img) ? `<img alt="" src="${esc(imgSrc(e.img))}">` : esc(String(e.name||'?').charAt(0).toUpperCase())}</span>`}
+        <span class="t"><b>${esc(e.name||'Sin nombre')}${e.mine ? ' <em class="mine">Tu personaje</em>' : ''}</b><small>${esc(subline(e)) || '&nbsp;'}</small></span>
+      </li>`).join('')}</ul>`
+    : `<p class="hint">${S.q || S.qClass ? 'Nada coincide con la búsqueda.' : empties[k]}</p>`}`;
+  const qi = $('#q');
+  qi.oninput = () => { S.q = qi.value; const pos = qi.selectionStart; renderSide(); const n = $('#q'); n.focus(); n.setSelectionRange(pos, pos); };
+  if ($('#qc')) $('#qc').onchange = e => { S.qClass = e.target.value; renderSide(); };
+  if ($('#newbtn')) $('#newbtn').onclick = () => { S.panel = {mode:'edit', id:null}; renderSide(); };
+  body.querySelectorAll('.list li').forEach(li => {
+    const open = () => { S.panel = {mode:'view', id:li.dataset.id}; renderSide(); };
+    li.onclick = open; li.onkeydown = ev => { if (ev.key === 'Enter') open(); };
+  });
+}
+function renderView(body, id, e){
+  const K = KINDS[e.kind] || KINDS.ficha;
+  let main = '';
+  if (e.kind === 'hechizo'){
+    const lv = (+e.nivel||0) === 0 ? `Truco de ${String(e.escuela||'').toLowerCase() || 'magia'}` : `${e.escuela || 'Hechizo'} de nivel ${e.nivel}`;
+    main = `<div class="eyebrow">${esc(lv)}${e.conc ? ' · Concentración' : ''}</div><h2 class="card-h" style="margin:4px 0 8px">${esc(e.name)}</h2>
+      <dl class="kv">
+        ${[['Lanzamiento',e.tiempo],['Alcance',e.alcance],['Área',e.zona],['Componentes',e.componentes],['Duración',e.duracion],['Clases',e.clases]].filter(r=>r[1]).map(r=>`<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('')}
+      </dl>${parseArea(e.zona) ? `<div class="actions" style="margin-top:4px"><button class="btn primary" id="spellarea">${HOST ? 'Colocar área en el mapa' : 'Proponer área en el mapa'}</button></div>` : ''}
+      <div class="prose">${esc(e.desc||'')}</div>`;
+  } else {
+    const st = (e.stats && typeof e.stats === 'object') ? e.stats : {};
+    const hasStats = STATK.some(([k]) => st[k]);
+    main = `<div class="card-top">${portraitHTML(e.img, e.name, e.kind==='personaje' ? COLORS[0] : e.tipo==='PNJ' ? COLORS[2] : COLORS[1])}
+        <div style="min-width:0"><div class="eyebrow">${esc(e.kind === 'personaje' ? 'Personaje' : (e.tipo || 'Ficha'))}</div><h2 class="card-h">${esc(e.name)}</h2>
+        <div style="color:var(--ink-soft);font-size:.9rem;margin-top:3px">${esc(subline(e))}</div></div></div>
+      <dl class="kv">
+        ${[['CA',e.ca],['PG', e.pg!=null && e.pg!=='' ? (e.pg + (e.pgmax ? ' / '+e.pgmax : '')) : ''],['Velocidad', e.vel ? e.vel+' pies' : ''],['Tamaño',e.tam]].filter(r=>r[1]).map(r=>`<dt>${r[0]}</dt><dd>${esc(r[1])}</dd>`).join('')}
+      </dl>
+      ${hasStats ? `<div class="stats">${STATK.map(([k, l]) => `<div><small>${l}</small><b>${esc(st[k]||'–')}</b><i>${st[k] ? mod(st[k]) : ''}</i></div>`).join('')}</div>` : ''}
+      ${HOST || e.mine ? rollButtonsHTML(id, e) : ''}
+      <div class="prose">${esc(e.notas||'')}</div>`;
+  }
+  body.innerHTML = `<button class="back" id="back">← Volver a la lista</button>${main}
+    ${HOST || e.mine ? `<div class="actions">
+      ${HOST && K.placeable ? '<button class="btn primary" id="place">Poner en el mapa</button>' : ''}
+      <button class="btn${HOST ? '' : ' primary'}" id="edit">${HOST ? 'Editar' : 'Editar mi hoja'}</button>
+      ${HOST ? '<button class="btn danger" id="del">Borrar</button>' : ''}
+    </div>` : ''}`;
+  $('#back').onclick = () => { S.panel = {mode:'list'}; renderSide(); };
+  bindRollButtons(body);
+  if ($('#spellarea')) $('#spellarea').onclick = () => { const a = parseArea(e.zona); startPlacing({...a, label:e.name, color:SCHOOL_COLORS[e.escuela] || TPL_COLORS[0], opacity:.35}); if (window.innerWidth <= 860) showSide(false); };
+  if (!(HOST || e.mine)) return;
+  $('#edit').onclick = () => { S.panel = {mode:'edit', id}; renderSide(); };
+  if (!HOST) return;
+  if (K.placeable) $('#place').onclick = () => addToken({
+    name:e.name, img:e.img || null, entry:id, kind:e.kind, size:SIZES[e.tam] || 1,
+    ...(e.kind === 'ficha' && isFinite(e.pg) && e.pg !== '' ? {hp:+e.pg, hpMax:+e.pg} : {}),
+    color: e.kind === 'personaje' ? COLORS[0] : e.tipo === 'PNJ' ? COLORS[2] : COLORS[1]});
+  twoStep($('#del'), () => { if (write('entries/'+id, null, 'del')){ S.panel = {mode:'list'}; renderSide(); toast('Entrada borrada'); } });
+}
+function renderEdit(body, id){
+  const e = id ? (S.entries.get(id) || {}) : {kind:S.tab};
+  const k = e.kind || S.tab, K = KINDS[k] || KINDS.ficha;
+  let draftImg = e.img || null;
+  const fld = ([key, label, type, opts]) => {
+    const v = e[key] ?? '', fid = 'f-'+key;
+    if (type === 'owner'){
+      if (!HOST) return '';
+      const opts2 = [...S.people].sort((a, b) => String(a[1].name).localeCompare(String(b[1].name)));
+      return `<div class="fld"><label for="${fid}">${label}</label><select id="${fid}" name="${key}"><option value="">Sin asignar</option>${opts2.map(([pid, p]) => `<option value="${esc(pid)}" ${pid===v?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div>`;
+    }
+    if (['salv','hab','atq'].includes(type)) return sheetExtraField(type, e);
+    if (type === 'area') return `<div class="fld"><label for="${fid}">${label}</label><textarea id="${fid}" name="${key}">${esc(v)}</textarea></div>`;
+    if (type === 'check') return `<div class="fld chk"><input type="checkbox" id="${fid}" name="${key}" ${v ? 'checked' : ''}><label for="${fid}">${label}</label></div>`;
+    if (type === 'sel') return `<div class="fld"><label for="${fid}">${label}</label><select id="${fid}" name="${key}"><option value=""></option>${opts.map(o=>`<option ${o===v?'selected':''}>${o}</option>`).join('')}</select></div>`;
+    if (type === 'stats'){ const st = e.stats || {}; return `<div class="fld"><label>${label}</label><div class="statin">${STATK.map(([sk, sl]) => `<div class="fld"><label for="f-st-${sk}" style="text-align:center">${sl}</label><input id="f-st-${sk}" name="st-${sk}" type="number" min="1" max="30" value="${esc(st[sk]??'')}"></div>`).join('')}</div></div>`; }
+    const list = opts ? ` list="dl-${key}"` : '';
+    return `<div class="fld"><label for="${fid}">${label}</label><input id="${fid}" name="${key}" ${type==='num'?'type="number"':''} value="${esc(v)}"${list}>${opts ? `<datalist id="dl-${key}">${opts.map(o=>`<option value="${o}">`).join('')}</datalist>` : ''}</div>`;
+  };
+  const parts = []; let buf = [];
+  K.fields.filter(f => HOST || f[2] !== 'owner').forEach(f => { const wide = ['area','stats','check','salv','hab','atq'].includes(f[2]) || ['clases','zona'].includes(f[0]);
+    if (wide){ if (buf.length){ parts.push(`<div class="duo">${buf.join('')}</div>`); buf = []; } parts.push(fld(f)); }
+    else { buf.push(fld(f)); if (buf.length === 2){ parts.push(`<div class="duo">${buf.join('')}</div>`); buf = []; } } });
+  if (buf.length) parts.push(`<div class="duo">${buf.join('')}</div>`);
+  body.innerHTML = `<button class="back" id="back">← ${id ? 'Volver' : 'Cancelar'}</button>
+    <div class="eyebrow">${id ? 'Editar' : 'Nuevo'} ${K.one}</div>
+    <form class="ed" id="ed" style="margin-top:8px">
+      ${k !== 'hechizo' ? `<div class="imgpick"><span id="pimg">${portraitHTML(draftImg, e.name)}</span><button type="button" class="btn" id="pick">${imgSrc(draftImg) ? 'Cambiar imagen' : 'Añadir imagen'}</button></div>` : ''}
+      <div class="fld"><label for="f-name">Nombre</label><input id="f-name" name="name" required value="${esc(e.name||'')}"></div>
+      ${parts.join('')}
+      <div class="actions"><button class="btn primary" type="submit">Guardar</button></div>
+    </form>`;
+  $('#back').onclick = () => { S.panel = id ? {mode:'view', id} : {mode:'list'}; renderSide(); };
+  bindSheetExtras();
+  if ($('#pick')) $('#pick').onclick = async () => { const img = await pickPortrait(); if (img){ draftImg = img; $('#pimg').innerHTML = portraitHTML(img, $('#f-name').value); $('#pick').textContent = 'Cambiar imagen'; } };
+  $('#ed').onsubmit = ev => {
+    ev.preventDefault();
+    const fd = new FormData(ev.target), out = {kind:k, name:(fd.get('name')||'').toString().trim(), img:draftImg, updatedAt:Date.now()};
+    if (!out.name){ toast('Ponle un nombre.'); return; }
+    K.fields.forEach(([key, , type]) => {
+      if (type === 'stats'){ out.stats = {}; STATK.forEach(([sk]) => { const v = fd.get('st-'+sk); if (v !== '' && v != null) out.stats[sk] = +v; }); }
+      else if (type === 'check') out[key] = fd.get(key) === 'on';
+      else if (['salv','hab','atq'].includes(type)) readSheetExtras(fd, type, out);
+      else if (type === 'owner'){ if (HOST){ const v = (fd.get(key) || '').toString(); if (v) out.owner = v; } }
+      else { const v = (fd.get(key) ?? '').toString().trim(); out[key] = type === 'num' && v !== '' ? +v : v; }
+    });
+    const nid = id || uid();
+    if (Array.isArray(e.conds)) out.conds = e.conds;
+    if (e.exh) out.exh = e.exh;
+    if (!HOST){ out.mine = true; out.ownerName = e.ownerName || ''; if (e.player) out.player = e.player; }
+    else if (e.player && !out.owner) out.player = e.player;
+    S.panel = {mode:'view', id:nid};
+    if (write('entries/'+nid, out)){
+      syncLinkedTokens(nid);
+      renderSide(); toast('Guardado');
+    } else S.panel = {mode:'edit', id};
+  };
+}
+
+/* ---------------- sheets ---------------- */
+document.querySelectorAll('.sheet').forEach(sh => {
+  sh.addEventListener('click', e => { if (sh.id === 'namesheet' && !me().name) return; if (e.target === sh || e.target.closest('[data-close]')) sh.hidden = true; });
+});
+function openMap(){
+  const b = S.board;
+  renderPageList(); $('#curpname').textContent = b.name || '';
+  $('#g-size').value = b.grid; $('#g-ox').value = b.ox; $('#g-oy').value = b.oy; $('#g-cols').value = b.cols; $('#g-rows').value = b.rows; $('#g-col').value = b.gridTone || '';
+  $('#maprm').hidden = !b.map; $('#mapsheet').hidden = false;
+}
+$('#mapsave').onclick = () => {
+  const n = (id, d, lo, hi) => { const v = +$(id).value; return isFinite(v) && $(id).value !== '' ? Math.min(hi, Math.max(lo, v)) : d; };
+  const patch = {grid:n('#g-size', 70, 10, 400), ox:n('#g-ox', 0, -400, 400), oy:n('#g-oy', 0, -400, 400), cols:n('#g-cols', 30, 5, 200), rows:n('#g-rows', 20, 5, 200), gridTone:$('#g-col').value};
+  setBoard(patch); $('#mapsheet').hidden = true; S.fitted = false; applyBoard(); toast('Mapa guardado');
+};
+$('#mapup').onclick = async () => {
+  const f = await pickFile(); if (!f) return;
+  toast('Preparando el mapa…', 60000);
+  try {
+    const {data, w, h} = await shrinkToData(f, 4096, .82);
+    const img = addImage(data);
+    setBoard({map:img.ref, mapW:w, mapH:h});
+    S.fitted = false; applyBoard(); $('#maprm').hidden = false;
+    toast(S.players && S.viewPage === S.playerPage ? 'Mapa subido. Tus jugadores lo verán en unos segundos.' : 'Mapa subido. Ajusta la cuadrícula si hace falta.');
+  } catch(e){ toast('No se ha podido leer esa imagen. Usa PNG, JPG o WEBP.'); }
+};
+twoStep($('#maprm'), () => { setBoard({map:null, mapW:0, mapH:0}); S.fitted = false; applyBoard(); $('#maprm').hidden = true; });
+
+function openInvite(){
+  $('#invlink').value = inviteLink();
+  const local = location.protocol === 'file:';
+  $('#invnote').textContent = local
+    ? 'Ahora mismo tienes el tablero abierto como archivo en tu ordenador, así que este enlace no le funcionará a nadie más. Súbelo a internet (GitHub Pages) y ábrelo desde allí para invitar a tus jugadores.'
+    : 'Manda este enlace a tus jugadores. No necesitan cuenta: lo abren y entran.';
+  renderInvitePeople();
+  $('#invsheet').hidden = false;
+}
+function renderInvitePeople(){
+  if (!HOST) return;
+  const box = $('#invpeople'), on = onlinePids();
+  const list = [...S.people].sort((a, b) => (on.has(b[0]) - on.has(a[0])) || String(a[1].name).localeCompare(String(b[1].name)));
+  const charOf = pid => [...S.entries.values()].filter(e => e.owner === pid).map(e => e.name).join(', ');
+  box.innerHTML = list.length ? `<div class="eyebrow" style="margin-top:12px">Jugadores</div><ul class="people">${list.map(([pid, p]) => `
+    <li><span class="dot${on.has(pid) ? ' on' : ''}" title="${on.has(pid) ? 'En la mesa' : 'Fuera'}"></span><b>${esc(p.name)}</b><small>${esc(charOf(pid) || 'Sin personaje asignado')}</small></li>`).join('')}</ul>
+    <p class="note">Para darle a alguien su personaje, abre la hoja en el compendio, pulsa Editar y elígelo en Jugador.</p>` : '';
+}
+$('#invcopy').onclick = () => {
+  const inp = $('#invlink');
+  const fallback = () => { inp.focus(); inp.select(); toast('Selecciónalo y cópialo con Ctrl+C.'); };
+  try { navigator.clipboard.writeText(inp.value).then(() => toast('Enlace copiado'), fallback); } catch(e){ fallback(); }
+};
+
+$('#exportbtn').onclick = () => {
+  const blob = new Blob([JSON.stringify(snapshot())], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'tablero-mundodisco-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast('Copia descargada');
+};
+$('#importbtn').onclick = () => {
+  const warn = $('#importwarn');
+  if (warn.hidden){ warn.hidden = false; $('#importbtn').textContent = 'Elegir archivo de copia'; return; }
+  const fi = $('#jsonin'); fi.value = '';
+  fi.onchange = async () => {
+    const f = fi.files[0]; if (!f) return;
+    try {
+      if (!loadState(JSON.parse(await f.text()))) throw 0;
+      S.fitted = false; S.sel = null; renderPageUI(); applyBoard(); renderFogBox(); renderTokCard(); renderSide(); saveNow();
+      for (const c of conns) sendFull(c);
+      $('#savesheet').hidden = true; toast('Copia cargada');
+    } catch(e){ toast('Ese archivo no es una copia del tablero.'); }
+  };
+  fi.click();
+};
+
+/* =========================================================
+   Turnos (iniciativa): el máster los lleva, todos los ven
+   ========================================================= */
+const DEF_INIT = {rows:[], turn:null, round:1};
+function cleanInit(x){
+  const rows = Array.isArray(x && x.rows) ? x.rows.filter(r => r && ID_RE.test(String(r.id))).slice(0, 60).map(r => ({
+    id:String(r.id), tok: ID_RE.test(String(r.tok)) ? String(r.tok) : null, name:String(r.name || 'Sin nombre').slice(0, 60),
+    val: r.val === null || r.val === '' || !isFinite(r.val) ? null : Math.max(-20, Math.min(99, Math.round(+r.val))),
+    dex: isFinite(r.dex) ? +r.dex : 0, roll: typeof r.roll === 'string' ? r.roll.slice(0, 30) : ''})) : [];
+  return {rows, turn: x && rows.some(r => r.id === x.turn) ? x.turn : null, round: Math.max(1, Math.min(999, +(x && x.round) || 1))};
+}
+const initOrder = () => [...S.init.rows].sort((a, b) =>
+  ((b.val ?? -999) - (a.val ?? -999)) || (b.dex - a.dex) || a.name.localeCompare(b.name));
+const curTurnTok = () => { const r = S.init.rows.find(r => r.id === S.init.turn); return r && r.tok; };
+
+function dexOf(tokId){
+  const t = S.tokens.get(tokId), e = t && t.entry && S.entries.get(t.entry);
+  const d = e && e.stats && +e.stats.des;
+  return d ? Math.floor((d - 10) / 2) : 0;
+}
+function setInit(next){
+  const prevTok = curTurnTok();
+  S.init = cleanInit(next);
+  renderInit(); renderTokens(); renderTokCard();
+  if (HOST){ broadcast({t:'op', path:'init/main', mode:'set', data:S.init}); saveSoon(); }
+  if (curTurnTok() !== prevTok) announceTurn();
+}
+function announceTurn(){
+  const r = S.init.rows.find(r => r.id === S.init.turn); if (!r) return;
+  const t = r.tok && S.tokens.get(r.tok), e = t && t.entry && S.entries.get(t.entry);
+  if (!HOST && e && e.mine) toast('¡Te toca! Turno de ' + r.name, 4500);
+}
+function initHas(tokId){ return S.init.rows.some(r => r.tok === tokId); }
+function initAdd(tokIds){
+  const rows = [...S.init.rows];
+  for (const id of tokIds){
+    const t = S.tokens.get(id); if (!t || rows.some(r => r.tok === id)) continue;
+    rows.push({id:uid(), tok:id, name:t.name || 'Sin nombre', val:null, dex:dexOf(id), roll:''});
+  }
+  setInit({...S.init, rows});
+}
+function initRemove(rowId){
+  const order = initOrder(), i = order.findIndex(r => r.id === rowId);
+  let turn = S.init.turn;
+  if (turn === rowId) turn = order.length > 1 ? order[(i + 1) % order.length].id : null;
+  setInit({...S.init, rows:S.init.rows.filter(r => r.id !== rowId), turn});
+}
+function initStep(dir){
+  const order = initOrder(); if (!order.length) return;
+  let i = order.findIndex(r => r.id === S.init.turn), round = S.init.round;
+  if (i < 0){ setInit({...S.init, turn:order[0].id}); return; }
+  i += dir;
+  if (i >= order.length){ i = 0; round++; }
+  if (i < 0){ if (round > 1){ i = order.length - 1; round--; } else i = 0; }
+  setInit({...S.init, turn:order[i].id, round});
+}
+function initRollMissing(){
+  const rows = S.init.rows.map(r => {
+    if (r.val !== null) return r;
+    const d = 1 + Math.floor(Math.random() * 20), m = r.dex || 0;
+    return {...r, val:d + m, roll:`d20 (${d})${m ? (m > 0 ? ' + ' : ' − ') + Math.abs(m) : ''}`};
+  });
+  setInit({...S.init, rows});
+}
+// ¿puede este jugador poner la iniciativa de esta fila? solo la de su propio personaje
+function rowIsMine(r){
+  const t = r.tok && S.tokens.get(r.tok), e = t && t.entry && S.entries.get(t.entry);
+  return !!(e && e.mine);
+}
+function setRowVal(rowId, v){
+  const val = v === '' || v == null ? null : Math.max(-20, Math.min(99, Math.round(+v)));
+  if (v !== '' && v != null && !isFinite(+v)) return;
+  if (HOST){ setInit({...S.init, rows:S.init.rows.map(r => r.id === rowId ? {...r, val, roll:''} : r)}); return; }
+  if (!(hostConn && hostConn.open)){ toast('No estás conectado a la mesa.'); return; }
+  send(hostConn, {t:'initval', row:rowId, val});
+}
+
+let initCollapsed = false, initOpen = HOST ? false : true;
+function renderInit(){
+  const box = $('#initbox'), rows = initOrder();
+  const show = HOST ? initOpen : rows.length > 0;
+  box.hidden = !show; $('#initbtn').setAttribute('aria-pressed', String(!box.hidden));
+  if (!show) return;
+  if (box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT'){ box.dataset.stale = '1'; return; }
+  box.dataset.stale = '';
+  const cur = S.init.turn;
+  const list = rows.map(r => {
+    const t = r.tok && S.tokens.get(r.tok), src = t ? imgSrc(t.img) : '';
+    const nm = (t && t.name) || r.name;
+    const editable = HOST || rowIsMine(r);
+    const val = editable
+      ? `<input class="ival" type="number" inputmode="numeric" data-row="${esc(r.id)}" value="${r.val ?? ''}" placeholder="–" aria-label="Iniciativa de ${esc(nm)}"${r.roll ? ` title="${esc(r.roll)}"` : ''}>`
+      : `<span class="ival ro"${r.roll ? ` title="${esc(r.roll)}"` : ''}>${r.val ?? '–'}</span>`;
+    return `<li class="${r.id === cur ? 'cur' : ''}${t ? '' : ' gone'}" data-tok="${esc(r.tok || '')}">
+      <span class="ithumb" style="--c:${esc(t && COLORS.includes(t.color) ? t.color : 'var(--line)')}">${src ? `<img alt="" src="${esc(src)}">` : esc(nm.charAt(0).toUpperCase())}</span>
+      <span class="iname">${esc(nm)}${rowIsMine(r) ? ' <em class="mine">Tú</em>' : ''}</span>
+      ${val}
+      ${HOST ? `<button class="ix" data-rm="${esc(r.id)}" aria-label="Quitar a ${esc(nm)} de los turnos">×</button>` : ''}
+    </li>`;
+  }).join('');
+  const missing = S.init.rows.some(r => r.val === null);
+  const onMap = [...S.tokens].filter(([id, t]) => onView(t) && !initHas(id)).length;
+  box.innerHTML = `
+    <div class="ihead"><button class="itoggle" id="icol" aria-expanded="${!initCollapsed}">Turnos</button>
+      <span class="iround">${S.init.rows.length ? 'Ronda ' + S.init.round : ''}</span>
+      ${HOST ? '<button class="ix" id="iclose" aria-label="Ocultar turnos">×</button>' : ''}</div>
+    ${initCollapsed ? '' : `
+    ${rows.length ? `<ol class="irows">${list}</ol>` : `<p class="ihint">${HOST ? 'Pulsa una ficha del mapa y elige «Añadir a turnos», o mete a todas de golpe.' : ''}</p>`}
+    ${HOST ? `<div class="iacts">
+      ${rows.length ? `<button class="btn" id="iprev" aria-label="Turno anterior">◀</button><button class="btn primary" id="inext">${cur ? 'Siguiente turno' : 'Empezar'}</button>` : ''}
+      ${missing ? '<button class="btn" id="iroll" title="Tira d20 + Destreza a quien no tenga número">Tirar los que faltan</button>' : ''}
+      ${onMap ? `<button class="btn" id="iall">Añadir todas (${onMap})</button>` : ''}
+      ${rows.length ? '<button class="btn danger" id="iend">Terminar combate</button>' : ''}
+    </div>` : (rows.some(rowIsMine) && S.init.rows.some(r => rowIsMine(r) && r.val === null) ? '<p class="ihint">Escribe tu tirada de iniciativa en tu casilla.</p>' : '')}`}`;
+  $('#icol').onclick = () => { initCollapsed = !initCollapsed; renderInit(); };
+  if (HOST && $('#iclose')) $('#iclose').onclick = () => { initOpen = false; renderInit(); };
+  box.querySelectorAll('input.ival').forEach(inp => {
+    inp.onchange = () => setRowVal(inp.dataset.row, inp.value.trim());
+    inp.onkeydown = e => { if (e.key === 'Enter') inp.blur(); };
+    inp.onblur = () => setTimeout(() => { if (box.dataset.stale && !box.contains(document.activeElement)) renderInit(); }, 0);
+  });
+  box.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => initRemove(b.dataset.rm));
+  box.querySelectorAll('.irows li').forEach(li => li.onclick = e => { if (e.target.closest('input,button')) return; const id = li.dataset.tok; if (id && S.tokens.has(id) && onView(S.tokens.get(id))) select(id); });
+  if (!HOST) return;
+  if ($('#inext')) $('#inext').onclick = () => initStep(1);
+  if ($('#iprev')) $('#iprev').onclick = () => initStep(-1);
+  if ($('#iroll')) $('#iroll').onclick = initRollMissing;
+  if ($('#iall')) $('#iall').onclick = () => initAdd([...S.tokens].filter(([, t]) => onView(t)).map(([id]) => id));
+  if ($('#iend')) twoStep($('#iend'), () => setInit({...DEF_INIT}));
+}
+
+/* =========================================================
+   Tiradas: unidas a la hoja (pruebas, salvaciones, habilidades, ataques, iniciativa)
+   o libres. El jugador pide, el máster acepta y entonces se tiran los dados
+   (en el navegador del máster, así nadie puede amañarlas).
+   ========================================================= */
+const STATN = {fue:'Fuerza', des:'Destreza', con:'Constitución', int:'Inteligencia', sab:'Sabiduría', car:'Carisma'};
+const SKILLS = [
+  ['acrobacias','Acrobacias','des'],['arcano','C. Arcano','int'],['atletismo','Atletismo','fue'],['engano','Engaño','car'],
+  ['historia','Historia','int'],['interpretacion','Interpretación','car'],['intimidacion','Intimidación','car'],['investigacion','Investigación','int'],
+  ['juegomanos','Juego de manos','des'],['medicina','Medicina','sab'],['naturaleza','Naturaleza','int'],['percepcion','Percepción','sab'],
+  ['perspicacia','Perspicacia','sab'],['persuasion','Persuasión','car'],['religion','Religión','int'],['sigilo','Sigilo','des'],
+  ['supervivencia','Supervivencia','sab'],['animales','Trato con animales','sab']];
+const sgn = n => (n >= 0 ? '+' : '−') + Math.abs(n);
+
+function statMod(e, k){ const v = e && e.stats && +e.stats[k]; return v ? Math.floor((v - 10) / 2) : 0; }
+function profOf(e){
+  if (!e) return 2;
+  if (e.kind === 'ficha'){
+    const s = String(e.vd || '').trim(); let vd = s.includes('/') ? (+s.split('/')[0] / +s.split('/')[1]) : +s;
+    if (!isFinite(vd)) vd = 0;
+    return 2 + Math.floor((Math.max(1, Math.ceil(vd)) - 1) / 4);
+  }
+  const lv = Math.max(1, Math.min(20, +e.nivel || 1));
+  return 2 + Math.floor((lv - 1) / 4);
+}
+// Agotamiento en 5.5: −2 por nivel a las pruebas de d20
+function exhPen(e){ return e && e.kind === 'personaje' ? 2 * Math.max(0, Math.min(6, +e.exh || 0)) : 0; }
+function atkList(e){ return Array.isArray(e && e.ataques) ? e.ataques.filter(a => a && a.n) : []; }
+
+// qué se tira y con qué modificador, calculado desde la hoja
+function rollSpec(e, kind, key){
+  const p = profOf(e), x = exhPen(e);
+  if (kind === 'prueba' && STATN[key]) return {label:'Prueba de ' + STATN[key], d20:true, bonus:statMod(e, key) - x};
+  if (kind === 'salv' && STATN[key]){
+    const comp = Array.isArray(e.salv) && e.salv.includes(key);
+    return {label:'Salvación de ' + STATN[key], d20:true, bonus:statMod(e, key) + (comp ? p : 0) - x};
+  }
+  if (kind === 'hab'){
+    const s = SKILLS.find(s => s[0] === key); if (!s) return null;
+    const lvl = Math.max(0, Math.min(2, +((e.hab || {})[key]) || 0));
+    return {label:s[1], d20:true, bonus:statMod(e, s[2]) + p * lvl - x};
+  }
+  if (kind === 'ini') return {label:'Iniciativa', d20:true, bonus:statMod(e, 'des') - x, ini:true};
+  if (kind === 'atq'){
+    const a = atkList(e)[+key]; if (!a) return null;
+    const m = statMod(e, STATN[a.st] ? a.st : 'fue'), extra = Math.round(+a.extra || 0);
+    const dm = (a.md === false ? 0 : m) + extra, dice = String(a.dano || '').trim();
+    if (a.mode === 'salv'){
+      const sv = STATN[a.sv] ? a.sv : 'des';
+      const cd = a.cd !== '' && a.cd !== null && a.cd !== undefined && isFinite(a.cd) && +a.cd > 0 ? Math.round(+a.cd) : 8 + p + m;
+      return {label:a.n, d20:false, save:{st:sv, cd, half:a.half !== false},
+        dmg: parseFormula(dice) ? {formula: dice + (dm ? sgn(dm).replace('−', '-') : ''), tipo:String(a.tipo || '').slice(0, 30)} : null};
+    }
+    return {label:'Ataque: ' + a.n, d20:true, bonus:m + (a.comp === false ? 0 : p) + extra - x,
+      dmg: parseFormula(dice) ? {formula: dice + (dm ? sgn(dm).replace('−', '-') : ''), tipo:String(a.tipo || '').slice(0, 30)} : null};
+  }
+  return null;
+}
+
+/* --- fórmulas tipo 2d6+1d4+3 --- */
+function parseFormula(f){
+  const s = String(f || '').replace(/\s+/g, '').toLowerCase().replace(/−/g, '-');
+  if (!s || s.length > 60 || !/^[+-]?(\d*d\d+|\d+)([+-](\d*d\d+|\d+))*$/.test(s)) return null;
+  const terms = []; let total = 0;
+  for (const m of s.matchAll(/([+-]?)(\d*)d(\d+)|([+-]?)(\d+)/g)){
+    if (m[3]){ const n = m[2] === '' ? 1 : +m[2], sd = +m[3]; if (n < 1 || n > 50 || sd < 2 || sd > 1000) return null; terms.push({sign:m[1] === '-' ? -1 : 1, n, sd}); total += n; }
+    else terms.push({sign:m[4] === '-' ? -1 : 1, k:+m[5]});
+  }
+  return total > 100 ? null : terms;
+}
+const die = sd => 1 + Math.floor((crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296) * sd);
+function rollTerms(terms, crit){
+  let total = 0; const bits = [];
+  for (const t of terms){
+    if (t.sd){
+      const n = crit ? t.n * 2 : t.n, rs = Array.from({length:n}, () => die(t.sd));
+      const sum = rs.reduce((a, b) => a + b, 0); total += t.sign * sum;
+      bits.push(`${t.sign < 0 ? '− ' : bits.length ? '+ ' : ''}${n}d${t.sd} (${rs.join(', ')})`);
+    } else { total += t.sign * t.k; bits.push(`${t.sign < 0 ? '−' : '+'} ${t.k}`); }
+  }
+  return {total, detail:bits.join(' ')};
+}
+function doRoll(spec, adv){
+  if (spec.save){
+    const res = {total:null, detail:''};
+    if (spec.dmg){ const t = parseFormula(spec.dmg.formula); if (t){ const d = rollTerms(t, false); res.dmg = {...d, tipo:spec.dmg.tipo}; res.total = d.total; res.detail = d.detail; } }
+    return res;
+  }
+  const res = {};
+  if (spec.d20){
+    const a = die(20), b = adv ? die(20) : null;
+    const nat = adv === 'v' ? Math.max(a, b) : adv === 'd' ? Math.min(a, b) : a;
+    res.nat = nat; res.total = nat + spec.bonus;
+    res.detail = `d20 (${b === null ? a : a + ', ' + b})${spec.bonus ? ' ' + sgn(spec.bonus).replace('+', '+ ').replace('−', '− ') : ''}`;
+    if (spec.dmg){ const t = parseFormula(spec.dmg.formula); if (t){ const d = rollTerms(t, nat === 20); res.dmg = {...d, tipo:spec.dmg.tipo}; } }
+  } else {
+    const t = parseFormula(spec.formula); const d = rollTerms(t, false); res.total = d.total; res.detail = d.detail;
+  }
+  return res;
+}
+
+/* --- estado compartido de tiradas (lo guarda el máster) --- */
+let pendingSeen = 0;
+function rollsForPlayers(){ return S.rolls.filter(r => !r.secret).slice(-40).map(r => { const o = {...r}; delete o.ca; return o; }); }
+function broadcastRolls(){ if (HOST){ broadcast({t:'rolls', list:rollsForPlayers()}); saveSoon(); } renderDiceBadge(); if (S.tab === 'dados') renderSide(); }
+
+function makeRoll(req, pid, who){
+  const kind = String(req.kind || ''), adv = ['v', 'd'].includes(req.adv) ? req.adv : '';
+  let spec = null, entry = null;
+  if (kind === 'libre'){
+    const f = String(req.formula || '').trim(); if (!parseFormula(f)) return 'Esa tirada no se entiende. Prueba con algo como 2d6+3.';
+    spec = {label:String(req.label || 'Tirada libre').slice(0, 40), formula:f.replace(/\s+/g, ''), d20:false};
+  } else {
+    entry = ID_RE.test(String(req.entry)) ? req.entry : null;
+    const e = entry && S.entries.get(entry); if (!e) return 'No encuentro esa hoja.';
+    if (pid !== 'dm' && e.owner !== pid) return 'Solo puedes tirar con tu personaje.';
+    spec = rollSpec(e, kind, String(req.key)); if (!spec) return 'Esa tirada no existe en la hoja.';
+    who = e.name || who;
+  }
+  if (pid !== 'dm' && S.rolls.filter(r => r.pid === pid && r.status === 'pend').length >= 5) return 'Tienes demasiadas tiradas esperando al máster.';
+  let from = kind === 'atq' && ID_RE.test(String(req.from)) && S.tokens.has(req.from) ? req.from : null;
+  let to = kind === 'atq' && ID_RE.test(String(req.to)) && S.tokens.has(req.to) ? req.to : null;
+  if (pid !== 'dm'){
+    if (from && (S.tokens.get(from).entry !== entry || !playerVisibleTok(S.tokens.get(from)))) from = null;
+    if (to && !playerVisibleTok(S.tokens.get(to))) to = null;
+  }
+  let tos = [], area = null;
+  if (spec.save){
+    to = null;
+    if (Array.isArray(req.tos)) tos = [...new Set(req.tos.map(String))].filter(id => ID_RE.test(id) && S.tokens.has(id) && (pid === 'dm' || playerVisibleTok(S.tokens.get(id)))).slice(0, 30)
+      .map(id => ({id, name:String(S.tokens.get(id).name || '').slice(0, 40)}));
+    area = ID_RE.test(String(req.area)) && S.tpls.has(req.area) ? req.area : null;
+  }
+  const r = {id:uid(), pid, who:String(who || 'Alguien').slice(0, 40), entry, kind, key:String(req.key ?? ''), spec, adv: spec.save ? '' : adv, status:'pend', ts:Date.now(), secret: pid === 'dm' && !!S.secretRoll,
+    from, to, toName: to ? String(S.tokens.get(to).name || '').slice(0, 40) : '', tos, area};
+  S.rolls.push(r); if (S.rolls.length > 80) S.rolls.splice(0, S.rolls.length - 80);
+  return r;
+}
+function acceptRoll(id){
+  const r = S.rolls.find(r => r.id === id); if (!r || r.status !== 'pend') return;
+  r.res = doRoll(r.spec, r.adv); r.status = 'ok'; r.ts = Date.now();
+  if (r.spec.save) rollSaves(r);
+  if (r.to){
+    const tt = S.tokens.get(r.to), te = tt && tt.entry && S.entries.get(tt.entry);
+    const ca = te && te.ca !== '' && te.ca !== null && isFinite(te.ca) ? +te.ca : null;
+    r.ca = ca; r.hit = r.res.nat === 20 ? true : r.res.nat === 1 ? false : ca === null ? null : r.res.total >= ca;
+  }
+  if (r.spec.ini && r.entry){
+    const toks = [...S.tokens].filter(([, t]) => t.entry === r.entry).map(([tid]) => tid);
+    if (S.init.rows.some(row => toks.includes(row.tok)))
+      setInit({...S.init, rows:S.init.rows.map(row => toks.includes(row.tok) ? {...row, val:r.res.total, roll:r.res.detail} : row)});
+  }
+  broadcastRolls(); announceRoll(r); r.spec.save ? playSaveFx(r) : playAttackFx(r);
+}
+function rejectRoll(id){ const r = S.rolls.find(r => r.id === id); if (!r || r.status !== 'pend') return; r.status = 'no'; broadcastRolls(); }
+
+// desde cualquier botón de tirada
+function askRoll(req, targeted){
+  if (req.kind === 'atq' && !targeted){
+    if (!req.from) req = {...req, from:findAttacker(req.entry)};
+    const sp0 = rollSpec(S.entries.get(req.entry) || {}, 'atq', req.key);
+    if (sp0 && sp0.save){ startTargeting({...req, multi:true, picks:[], area:null}); return; }
+    if ([...S.tokens].some(([id, t]) => onView(t) && id !== req.from)){ startTargeting(req); return; }
+  }
+  req = {...req, adv:S.adv};
+  if (HOST){
+    const r = makeRoll(req, 'dm', 'Máster');
+    if (typeof r === 'string'){ toast(r); return; }
+    acceptRoll(r.id);
+  } else {
+    if (!(hostConn && hostConn.open)){ toast('No estás conectado a la mesa.'); return; }
+    send(hostConn, {t:'rollreq', ...req}); toast('Tirada pedida. Espera a que el máster la acepte.');
+  }
+  if (S.adv){ S.adv = ''; if (S.tab === 'dados') renderSide(); }
+}
+function announceRoll(r){
+  if (r.status !== 'ok' || !r.res) return;
+  if (r.spec.save){
+    const ok = (r.saves || []).filter(x => x.saved).length, ko = (r.saves || []).length - ok;
+    toast(`${r.who} · ${r.spec.label}: ${r.saves && r.saves.length ? `${ko} ${ko === 1 ? 'falla' : 'fallan'}, ${ok} ${ok === 1 ? 'salva' : 'salvan'}` : 'sin objetivos'}${r.res.dmg ? ` (daño ${r.res.dmg.total})` : ''}`, 4500);
+    return;
+  }
+  const extra = r.res.nat === 20 ? ' · ¡Crítico!' : r.res.nat === 1 ? ' · Pifia' : '';
+  const vs = r.toName ? ` contra ${r.toName}` : '', hit = r.hit === true ? ' · Impacta' : r.hit === false ? ' · Falla' : '';
+  toast(`${r.who} · ${r.spec.label}${vs}: ${r.res.total}${hit}${r.res.dmg && r.hit !== false ? ` (daño ${r.res.dmg.total})` : ''}${extra}`, 4500);
+}
+function renderDiceBadge(){
+  const b = document.querySelector('.tabs [data-k="dados"]'); if (!b) return;
+  const n = HOST ? S.rolls.filter(r => r.status === 'pend').length : 0;
+  b.textContent = n ? `Dados (${n})` : 'Dados';
+  b.classList.toggle('alert', n > 0);
+}
+
+/* --- botones de tirada para una hoja --- */
+function rollButtonsHTML(id, e){
+  const p = profOf(e), x = exhPen(e);
+  const btn = (kind, key, label, bonus, strong) => `<button class="rb${strong ? ' strong' : ''}" data-entry="${esc(id)}" data-kind="${kind}" data-key="${esc(key)}" title="${esc(label)}"><span>${esc(label)}</span><b>${sgn(bonus)}</b></button>`;
+  const salv = Array.isArray(e.salv) ? e.salv : [], hab = e.hab || {};
+  const atks = atkList(e);
+  return `<div class="rolls">
+    ${x ? `<p class="hint" style="margin:0 0 6px">Agotamiento: −${x} a todas las tiradas de d20.</p>` : ''}
+    <div class="rgrp"><div class="eyebrow">Pruebas</div><div class="rgrid six">${STATK.map(([k, l]) => btn('prueba', k, l, statMod(e, k) - x)).join('')}</div></div>
+    <div class="rgrp"><div class="eyebrow">Salvaciones</div><div class="rgrid six">${STATK.map(([k, l]) => btn('salv', k, l, statMod(e, k) + (salv.includes(k) ? p : 0) - x, salv.includes(k))).join('')}</div></div>
+    ${e.kind === 'personaje' ? `<div class="rgrp"><div class="eyebrow">Habilidades</div><div class="rgrid">${SKILLS.map(([k, l, st]) => btn('hab', k, l, statMod(e, st) + p * (+hab[k] || 0) - x, +hab[k] > 0)).join('')}</div></div>` : ''}
+    ${atks.length ? `<div class="rgrp"><div class="eyebrow">Ataques</div><div class="rgrid one">${atks.map((a, i) => {
+      const s = rollSpec(e, 'atq', i);
+      return `<button class="rb atk" data-entry="${esc(id)}" data-kind="atq" data-key="${i}">${atkInner(a, s)}</button>`;
+    }).join('')}</div></div>` : ''}
+    <div class="rgrp"><div class="rgrid one">${btn('ini', 'ini', 'Iniciativa', statMod(e, 'des') - x)}</div></div>
+  </div>`;
+}
+function atkInner(a, s){
+  const dmg = s.dmg ? `${esc(s.dmg.formula)}${s.dmg.tipo ? ' ' + esc(s.dmg.tipo) : ''}` : '';
+  if (s.save) return `<span>${esc(a.n)}</span><b>CD ${s.save.cd}</b><small>Salvación de ${esc(STATN[s.save.st])}${dmg ? ' · ' + dmg + (s.save.half ? ' (mitad si salva)' : '') : ''}</small>`;
+  return `<span>${esc(a.n)}</span><b>${sgn(s.bonus)}</b>${dmg ? `<small>${dmg}</small>` : ''}`;
+}
+function bindRollButtons(root){
+  root.querySelectorAll('.rb[data-kind]').forEach(b => b.onclick = () => askRoll({entry:b.dataset.entry, kind:b.dataset.kind, key:b.dataset.key}));
+}
+
+/* --- pestaña Dados --- */
+function rollItemHTML(r){
+  if (r.spec && r.spec.save) return saveItemHTML(r);
+  const res = r.res, st = r.status;
+  const pend = st === 'pend', mineP = !HOST && r.pid === me().id;
+  const resHTML = st === 'ok' && res ? `<div class="rres"><b class="rtot${res.nat === 20 ? ' crit' : res.nat === 1 ? ' fumble' : ''}">${res.total}</b>
+      <span class="rdet">${esc(res.detail)}${res.nat === 20 ? ' · ¡Crítico!' : res.nat === 1 ? ' · Pifia' : ''}</span></div>
+      ${r.to ? `<div class="rhit ${r.hit === true ? 'y' : r.hit === false ? 'n' : ''}">${r.hit === true ? 'Impacta' : r.hit === false ? 'Falla' : 'Sin CA para comparar'}${HOST && r.ca !== null && r.ca !== undefined ? ` <small>(CA ${r.ca})</small>` : ''}</div>` : ''}
+      ${res.dmg && r.hit !== false ? `<div class="rres dmg"><b class="rtot">${res.dmg.total}</b><span class="rdet">daño${res.dmg.tipo ? ' ' + esc(res.dmg.tipo) : ''} · ${esc(res.dmg.detail)}</span></div>` : ''}`
+    : st === 'no' ? '<div class="rstate no">El máster no la ha aceptado</div>'
+    : `<div class="rstate">${HOST ? 'Pide permiso para tirar' : mineP ? 'Esperando a que el máster la acepte…' : 'Esperando al máster…'}</div>`;
+  const what = r.spec.d20 ? `d20 ${sgn(r.spec.bonus)}` : r.spec.formula;
+  return `<li class="ritem ${st}${r.secret ? ' secret' : ''}">
+    <div class="rhead"><b>${esc(r.who)}</b><span>${esc(r.spec.label)}${r.toName ? ' contra ' + esc(r.toName) : ''} · ${esc(what)}${r.adv === 'v' ? ' · con ventaja' : r.adv === 'd' ? ' · con desventaja' : ''}</span>${r.secret ? '<em class="rsec">Oculta</em>' : ''}</div>
+    ${resHTML}
+    ${HOST && pend ? `<div class="ract"><button class="btn primary" data-acc="${esc(r.id)}">Aceptar y tirar</button><button class="btn danger" data-rej="${esc(r.id)}">No</button></div>` : ''}
+    ${HOST && st === 'ok' && res && res.dmg && r.to && r.hit !== false && S.tokens.has(r.to) ? (r.applied ? `<div class="rstate">Aplicados ${r.applied} de daño a ${esc(r.toName)}</div>`
+      : `<div class="ract"><button class="btn danger" data-apply="${esc(r.id)}">Aplicar ${res.dmg.total} a ${esc(r.toName)}</button><button class="btn" data-half="${esc(r.id)}">La mitad</button></div>`) : ''}
+  </li>`;
+}
+function renderDice(body){
+  const sheets = HOST ? [...S.entries].filter(([, e]) => e.kind === 'personaje' || e.kind === 'ficha') : [...S.entries].filter(([, e]) => e.mine);
+  if (S.diceFor && !S.entries.has(S.diceFor)) S.diceFor = '';
+  if (!HOST && !S.diceFor && sheets.length) S.diceFor = sheets[0][0];
+  const cur = S.diceFor && S.entries.get(S.diceFor);
+  const log = [...S.rolls].reverse();
+  const pend = log.filter(r => r.status === 'pend'), done = log.filter(r => r.status !== 'pend');
+  const shown = (HOST ? done : log), recent = shown.slice(0, 4), older = shown.slice(4, 40);
+  body.innerHTML = `
+    ${HOST && pend.length ? `<div class="eyebrow">Esperando tu permiso</div><ul class="rlog">${pend.map(rollItemHTML).join('')}</ul>` : ''}
+    <div class="seg" role="group" aria-label="Ventaja">
+      <button data-adv="d" aria-pressed="${S.adv === 'd'}">Desventaja</button><button data-adv="" aria-pressed="${!S.adv}">Normal</button><button data-adv="v" aria-pressed="${S.adv === 'v'}">Ventaja</button>
+    </div>
+    ${HOST ? `<label class="vpub" style="margin-top:8px"><input type="checkbox" id="secret" ${S.secretRoll ? 'checked' : ''}> Mis tiradas en secreto (solo las veo yo)</label>` : ''}
+    <div class="eyebrow" style="margin-top:12px">Últimas tiradas</div>
+    ${recent.length ? `<ul class="rlog">${recent.map(rollItemHTML).join('')}</ul>` : '<p class="hint" style="margin-top:4px">Aún no se ha tirado nada.</p>'}
+    ${sheets.length > (HOST ? 0 : 1) ? `<div class="fld" style="margin-top:10px"><label for="dicefor">Tirar con</label><select id="dicefor" class="search">
+      ${HOST ? '<option value="">Solo dados libres</option>' : ''}${sheets.map(([id, e]) => `<option value="${esc(id)}" ${id === S.diceFor ? 'selected' : ''}>${esc(e.name)}</option>`).join('')}</select></div>` : ''}
+    ${cur ? rollButtonsHTML(S.diceFor, cur) : (!HOST && !sheets.length ? '<p class="hint">Cuando el máster te asigne tu personaje, aquí tendrás sus tiradas con sus modificadores.</p>' : '')}
+    <div class="rgrp"><div class="eyebrow">Dados libres</div>
+      <div class="dice">${[4,6,8,10,12,20,100].map(n => `<button class="dz" data-die="${n}">d${n}</button>`).join('')}</div>
+      <form class="row" id="freeform" style="margin-top:6px"><input class="search" id="freef" placeholder="Por ejemplo 2d6+3" aria-label="Tirada libre" autocomplete="off"><button class="btn primary" type="submit">Tirar</button></form>
+    </div>
+    ${older.length ? `<details class="rmore"><summary>Tiradas anteriores (${older.length})</summary><ul class="rlog">${older.map(rollItemHTML).join('')}</ul></details>` : ''}`;
+  body.querySelectorAll('.seg button').forEach(b => b.onclick = () => { S.adv = b.dataset.adv; renderSide(); });
+  if ($('#secret')) $('#secret').onchange = e => { S.secretRoll = e.target.checked; };
+  if ($('#dicefor')) $('#dicefor').onchange = e => { S.diceFor = e.target.value; renderSide(); };
+  bindRollButtons(body);
+  body.querySelectorAll('.dz').forEach(b => b.onclick = () => askRoll({kind:'libre', formula:'1d' + b.dataset.die, label:'d' + b.dataset.die}));
+  $('#freeform').onsubmit = ev => { ev.preventDefault(); const f = $('#freef').value.trim(); if (!parseFormula(f)){ toast('Esa tirada no se entiende. Prueba con algo como 2d6+3.'); return; } askRoll({kind:'libre', formula:f, label:'Tirada libre'}); $('#freef').value = ''; };
+  body.querySelectorAll('[data-acc]').forEach(b => b.onclick = () => acceptRoll(b.dataset.acc));
+  body.querySelectorAll('[data-rej]').forEach(b => b.onclick = () => rejectRoll(b.dataset.rej));
+  body.querySelectorAll('[data-apply]').forEach(b => b.onclick = () => applyRollDmg(b.dataset.apply, false));
+  body.querySelectorAll('[data-half]').forEach(b => b.onclick = () => applyRollDmg(b.dataset.half, true));
+  body.querySelectorAll('[data-sapply]').forEach(b => b.onclick = () => applySaveDmg(b.dataset.sapply));
+}
+
+/* --- edición de la hoja: salvaciones, habilidades y ataques --- */
+function sheetExtraField(type, e){
+  if (type === 'salv'){
+    const s = Array.isArray(e.salv) ? e.salv : [];
+    return `<div class="fld"><label>Salvaciones con competencia</label><div class="chkrow">${STATK.map(([k, l]) => `<label class="cbx"><input type="checkbox" name="salv-${k}" ${s.includes(k) ? 'checked' : ''}> ${l}</label>`).join('')}</div></div>`;
+  }
+  if (type === 'hab'){
+    const h = e.hab || {};
+    return `<details class="fld habs"><summary>Habilidades <small>(competencia o pericia)</small></summary><div class="habgrid">${SKILLS.map(([k, l, st]) => `<label class="habrow"><span>${l} <small>${st.toUpperCase()}</small></span>
+      <select name="hab-${k}"><option value="0">—</option><option value="1" ${+h[k] === 1 ? 'selected' : ''}>Competente</option><option value="2" ${+h[k] === 2 ? 'selected' : ''}>Pericia</option></select></label>`).join('')}</div></details>`;
+  }
+  if (type === 'atq'){
+    return `<div class="fld"><label>Ataques</label><div id="atqs">${atkList(e).map(atqRowHTML).join('')}</div>
+      <button type="button" class="btn" id="addatq" style="align-self:flex-start;margin-top:4px">+ Ataque</button>
+      <small class="hint" style="margin:2px 0 0">El bonificador se calcula solo: característica + competencia + extra. En los de salvación, si dejas la CD vacía se calcula como 8 + competencia + característica.</small></div>`;
+  }
+  return '';
+}
+function atqRowHTML(a = {}){
+  const i = uid();
+  return `<div class="atqrow" data-i="${i}">
+    <input name="atq-n-${i}" placeholder="Nombre (Espada larga)" value="${esc(a.n || '')}" aria-label="Nombre del ataque">
+    <select name="atq-mode-${i}" aria-label="Cómo funciona"><option value="atq">Tirada de ataque</option><option value="salv" ${a.mode === 'salv' ? 'selected' : ''}>Salvación del objetivo</option></select>
+    <select name="atq-st-${i}" aria-label="Característica" title="Con qué característica ataca o lanza el hechizo">${STATK.map(([k, l]) => `<option value="${k}" ${(a.st || 'fue') === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    <input name="atq-d-${i}" placeholder="Daño (1d8)" value="${esc(a.dano || '')}" aria-label="Dados de daño">
+    <input name="atq-t-${i}" placeholder="Tipo de daño" list="dl-dtypes" value="${esc(a.tipo || '')}" aria-label="Tipo de daño">
+    <input name="atq-x-${i}" type="number" placeholder="Extra" value="${a.extra ? esc(a.extra) : ''}" aria-label="Bonificador extra">
+    <label class="cbx" ${a.mode === 'salv' ? 'hidden' : ''}><input type="checkbox" name="atq-c-${i}" ${a.comp === false ? '' : 'checked'}> Competente</label>
+    <label class="cbx" title="Las armas suman la característica al daño; los trucos como Rayo de fuego, no"><input type="checkbox" name="atq-m-${i}" ${a.md === false ? '' : 'checked'}> Suma al daño</label>
+    <div class="svrow" ${a.mode === 'salv' ? '' : 'hidden'}>
+      <select name="atq-sv-${i}" aria-label="Salvación que hace el objetivo">${STATK.map(([k, l]) => `<option value="${k}" ${(a.sv || 'des') === k ? 'selected' : ''}>Salva con ${l}</option>`).join('')}</select>
+      <input name="atq-cd-${i}" type="number" min="1" max="40" placeholder="CD (auto)" value="${a.cd ? esc(a.cd) : ''}" aria-label="CD de la salvación" title="Si la dejas vacía: 8 + competencia + característica">
+      <label class="cbx"><input type="checkbox" name="atq-h-${i}" ${a.half === false ? '' : 'checked'}> Mitad si salva</label>
+    </div>
+    <button type="button" class="ix" data-rmatq aria-label="Quitar ataque">×</button>
+  </div>`;
+}
+function bindSheetExtras(){
+  const box = $('#atqs'); if (!box) return;
+  $('#addatq').onclick = () => { box.insertAdjacentHTML('beforeend', atqRowHTML()); };
+  box.addEventListener('click', e => { const b = e.target.closest('[data-rmatq]'); if (b) b.closest('.atqrow').remove(); });
+  box.addEventListener('change', e => {
+    const m = e.target.closest('select[name^="atq-mode-"]'); if (!m) return;
+    const row = m.closest('.atqrow'), salv = m.value === 'salv';
+    row.querySelector('.svrow').hidden = !salv;
+    if (salv){ const md = row.querySelector('input[name^="atq-m-"]'), c = row.querySelector('input[name^="atq-c-"]'); if (md) md.checked = false; if (c) c.closest('label').hidden = true; }
+    else { const c = row.querySelector('input[name^="atq-c-"]'); if (c) c.closest('label').hidden = false; }
+  });
+}
+function readSheetExtras(fd, type, out){
+  if (type === 'salv') out.salv = STATK.map(([k]) => k).filter(k => fd.get('salv-' + k) === 'on');
+  if (type === 'hab'){ out.hab = {}; SKILLS.forEach(([k]) => { const v = +fd.get('hab-' + k); if (v) out.hab[k] = v; }); }
+  if (type === 'atq'){
+    out.ataques = [...document.querySelectorAll('#atqs .atqrow')].map(row => { const i = row.dataset.i; return {
+      n:String(fd.get('atq-n-' + i) || '').trim().slice(0, 40), st:String(fd.get('atq-st-' + i) || 'fue'),
+      dano:String(fd.get('atq-d-' + i) || '').trim().slice(0, 30), tipo:String(fd.get('atq-t-' + i) || '').trim().slice(0, 20),
+      extra: +fd.get('atq-x-' + i) || 0, comp: fd.get('atq-c-' + i) === 'on', md: fd.get('atq-m-' + i) === 'on',
+      mode: fd.get('atq-mode-' + i) === 'salv' ? 'salv' : 'atq', sv:String(fd.get('atq-sv-' + i) || 'des'),
+      cd: fd.get('atq-cd-' + i) ? Math.max(1, Math.min(40, Math.round(+fd.get('atq-cd-' + i)) || 0)) || '' : '', half: fd.get('atq-h-' + i) === 'on'}; }).filter(a => a.n).slice(0, 12);
+  }
+}
+
+/* =========================================================
+   Áreas de hechizo: se colocan libres, se mueven y giran en directo.
+   Los jugadores proponen; el máster acepta.
+   ========================================================= */
+const SHAPES = {esfera:'Esfera', cilindro:'Cilindro', cono:'Cono', linea:'Línea', cubo:'Cubo'};
+const SCHOOL_COLORS = {'Abjuración':'#2d5a8a','Adivinación':'#2a7f7a','Conjuración':'#94701f','Encantamiento':'#b0457a',
+  'Evocación':'#b23a1f','Ilusión':'#6a3d9e','Nigromancia':'#2f4a2a','Transmutación':'#4d8a45'};
+const TPL_COLORS = ['#b23a1f','#94701f','#4d8a45','#2a7f7a','#2d5a8a','#6a3d9e','#b0457a','#2f4a2a'];
+let placing = null, tplDrag = null, areaOpen = false, lastTplSend = 0;
+
+function cleanTpl(x){
+  if (!x || typeof x !== 'object') return null;
+  const shape = SHAPES[x.shape] ? x.shape : 'esfera';
+  const n = (v, d, lo, hi) => isFinite(v) && v !== '' && v !== null ? Math.max(lo, Math.min(hi, +v)) : d;
+  return {page: ID_RE.test(String(x.page)) ? String(x.page) : undefined, shape, size:Math.round(n(x.size, 20, 5, 500) / 5) * 5, width:Math.round(n(x.width, 5, 5, 100) / 5) * 5,
+    x:n(x.x, 0, -50, 500), y:n(x.y, 0, -50, 500), angle:n(x.angle, 0, -360, 360),
+    color: TPL_COLORS.includes(x.color) || Object.values(SCHOOL_COLORS).includes(x.color) ? x.color : TPL_COLORS[0],
+    opacity:n(x.opacity, .35, .1, .8), label:String(x.label || '').slice(0, 40),
+    owner:String(x.owner || 'dm').slice(0, 40), ownerName:String(x.ownerName || '').slice(0, 40), status:x.status === 'ok' ? 'ok' : 'prop'};
+}
+function tplGeom(t){
+  const g = S.board.grid, O = cell2px(t.x, t.y), L = t.size / 5 * g, W = t.width / 5 * g;
+  const a = t.angle * Math.PI / 180, d = [Math.cos(a), Math.sin(a)], p = [-Math.sin(a), Math.cos(a)];
+  const P = (k, m) => [O.x + d[0]*k + p[0]*m, O.y + d[1]*k + p[1]*m];
+  if (t.shape === 'esfera' || t.shape === 'cilindro') return {circle:true, O, r:L, handle:P(L, 0), center:[O.x, O.y]};
+  let pts;
+  if (t.shape === 'cono') pts = [P(0, 0), P(L, L/2), P(L, -L/2)];
+  else if (t.shape === 'linea') pts = [P(0, W/2), P(0, -W/2), P(L, -W/2), P(L, W/2)];
+  else pts = [P(0, L/2), P(0, -L/2), P(L, -L/2), P(L, L/2)];
+  const cx = pts.reduce((s, q) => s + q[0], 0) / pts.length, cy = pts.reduce((s, q) => s + q[1], 0) / pts.length;
+  return {pts, O, handle:P(L, 0), center: t.shape === 'cono' ? P(L*.62, 0) : [cx, cy]};
+}
+function inGeom(G, x, y){
+  if (G.circle) return Math.hypot(x - G.O.x, y - G.O.y) <= G.r + .5;
+  let inside = false; const p = G.pts;
+  for (let i = 0, j = p.length - 1; i < p.length; j = i++){
+    if (((p[i][1] > y) !== (p[j][1] > y)) && (x < (p[j][0] - p[i][0]) * (y - p[i][1]) / (p[j][1] - p[i][1]) + p[i][0])) inside = !inside;
+  }
+  return inside;
+}
+// geometría que se ve ahora mismo (con lo que alguien esté arrastrando)
+function liveTpl(id){ const t = S.tpls.get(id); if (!t) return null; const o = S.tplDrag.get(id); return o ? {...t, ...o.g} : t; }
+function tokenAreaColor(id, t){
+  const g = S.board.grid, size = (+t.size || 1) * g, p = cell2px(+t.x || 0, +t.y || 0);
+  const pd = S.peerDrag.get(id); const bx = pd ? pd.x : p.x, by = pd ? pd.y : p.y;
+  const cx = bx + size/2, cy = by + size/2, rr = size/2 * .8;
+  const samples = [[cx, cy]]; for (let k = 0; k < 8; k++) samples.push([cx + rr*Math.cos(k*Math.PI/4), cy + rr*Math.sin(k*Math.PI/4)]);
+  for (const tid of S.tpls.keys()){
+    const T = liveTpl(tid); if (!onView(T)) continue;
+    const G = tplGeom(T);
+    if (samples.some(([x, y]) => inGeom(G, x, y))) return T.color;
+  }
+  return null;
+}
+
+function canEditTpl(t){ return HOST || (t && t.owner === me().id); }
+function renderTpls(){
+  const svg = $('#tpls'), {w, h} = worldSize();
+  svg.setAttribute('width', w); svg.setAttribute('height', h); svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  const fs = Math.max(12, Math.round(S.board.grid * .24));
+  let html = '';
+  for (const id of S.tpls.keys()){
+    if (!onView(S.tpls.get(id))) continue;
+    const t = liveTpl(id), G = tplGeom(t), sel = S.tplSel === id, prop = t.status !== 'ok', ed = canEditTpl(t);
+    const style = `fill:${t.color};fill-opacity:${t.opacity};stroke:${t.color};stroke-width:${sel ? 3 : 2};${prop ? 'stroke-dasharray:8 6;' : ''}`;
+    const shape = G.circle ? `<circle cx="${G.O.x}" cy="${G.O.y}" r="${G.r}" style="${style}"/>` : `<polygon points="${G.pts.map(q => q.join(',')).join(' ')}" style="${style}"/>`;
+    const txt = `${t.label ? t.label + ' · ' : ''}${t.size} pies${prop ? ' · propuesta' : ''}`;
+    html += `<g class="tpl${sel ? ' sel' : ''}${ed ? ' ed' : ''}" data-tpl="${esc(id)}">${shape}
+      <circle cx="${G.O.x}" cy="${G.O.y}" r="${Math.max(3, fs*.25)}" class="tpl-o" style="fill:${t.color}"/>
+      <text x="${G.center[0]}" y="${G.center[1]}" class="tpl-t" style="font-size:${fs}px">${esc(txt)}</text>
+      ${sel && ed ? `<circle cx="${G.handle[0]}" cy="${G.handle[1]}" r="${Math.max(8, fs*.55)}" class="tpl-h" data-th="${esc(id)}" style="stroke:${t.color}"><title>Arrastra para girar y cambiar el tamaño</title></circle>` : ''}
+    </g>`;
+  }
+  svg.innerHTML = html;
+}
+
+function startPlacing(preset){
+  placing = {shape:'esfera', size:20, width:5, color:TPL_COLORS[0], opacity:.35, label:'', ...preset};
+  areaOpen = true; vp.classList.add('placing'); renderAreaBox();
+  toast('Pulsa en el mapa donde empieza el área.', 3500);
+}
+function placeAt(wx, wy){
+  const b = S.board, p = placing; placing = null; vp.classList.remove('placing');
+  const id = uid(), m = me();
+  const t = cleanTpl({...p, x:(wx - b.ox) / b.grid, y:(wy - b.oy) / b.grid, angle:0,
+    owner: HOST ? 'dm' : m.id, ownerName: HOST ? 'Máster' : m.name, status: HOST ? 'ok' : 'prop', page: HOST ? S.viewPage : undefined});
+  if (write('tpl/' + id, t)){ S.tplSel = id; renderTpls(); renderTokens(); renderAreaBox();
+    if (!HOST) toast('Área propuesta. El máster tiene que aceptarla.'); }
+}
+function saveTpl(id, patch){
+  const t = S.tpls.get(id); if (!t || !canEditTpl(t)) return;
+  const next = cleanTpl({...t, ...patch});
+  if (!HOST){ next.status = 'prop'; next.owner = me().id; next.ownerName = me().name; }
+  write('tpl/' + id, next);
+}
+
+/* --- arrastre del área y de su tirador --- */
+function tplPointerDown(e){
+  const h = e.target.closest('[data-th]'), g = e.target.closest('[data-tpl]');
+  const id = h ? h.dataset.th : g && g.dataset.tpl; if (!id) return false;
+  const t = S.tpls.get(id);
+  if (!canEditTpl(t)){ S.tplSel = id; renderTpls(); renderAreaBox(); return false; }
+  const w = toWorld(e.clientX, e.clientY), O = cell2px(t.x, t.y);
+  tplDrag = {id, mode: h ? 'handle' : 'move', dx:w.x - O.x, dy:w.y - O.y, sx:e.clientX, sy:e.clientY, moved:false, g:{}};
+  if (S.tplSel !== id){ S.tplSel = id; renderTpls(); renderAreaBox(); }
+  areaOpen = true; renderAreaBox();
+  return true;
+}
+function tplPointerMove(e){
+  if (!tplDrag) return false;
+  if (!tplDrag.moved && Math.hypot(e.clientX - tplDrag.sx, e.clientY - tplDrag.sy) < 3) return true;
+  tplDrag.moved = true;
+  const t = S.tpls.get(tplDrag.id); if (!t){ tplDrag = null; return true; }
+  const w = toWorld(e.clientX, e.clientY), b = S.board;
+  if (tplDrag.mode === 'move'){
+    tplDrag.g = {x:(w.x - tplDrag.dx - b.ox) / b.grid, y:(w.y - tplDrag.dy - b.oy) / b.grid};
+  } else {
+    const O = cell2px(t.x, t.y), vx = w.x - O.x, vy = w.y - O.y;
+    const ft = Math.max(5, Math.round(Math.hypot(vx, vy) / b.grid * 5 / 5) * 5);
+    tplDrag.g = {size:ft, angle: t.shape === 'esfera' || t.shape === 'cilindro' ? t.angle : Math.round(Math.atan2(vy, vx) * 180 / Math.PI)};
+  }
+  S.tplDrag.set(tplDrag.id, {g:tplDrag.g, at:Date.now(), mine:true});
+  renderTpls(); renderTokens();
+  const now = Date.now();
+  if (now - lastTplSend > 70){ lastTplSend = now; sendTplDrag(tplDrag.id, tplDrag.g); }
+  return true;
+}
+function tplPointerUp(){
+  if (!tplDrag) return false;
+  const d = tplDrag; tplDrag = null;
+  S.tplDrag.delete(d.id);
+  if (d.moved){ sendTplDrag(d.id, null); saveTpl(d.id, d.g); }
+  renderTpls(); renderTokens(); renderAreaBox();
+  return true;
+}
+function sendTplDrag(id, g){
+  const msg = {t:'tdrag', id, g};
+  if (HOST){ if (playerVisibleTpl(S.tpls.get(id))) broadcast(msg); } else send(hostConn, msg);
+}
+
+/* --- panel de áreas --- */
+function areaFormHTML(v, ids){
+  return `<div class="duo">
+      <div class="fld"><label for="${ids}shape">Forma</label><select id="${ids}shape">${Object.entries(SHAPES).map(([k, l]) => `<option value="${k}" ${v.shape === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div class="fld"><label for="${ids}size">${v.shape === 'esfera' || v.shape === 'cilindro' ? 'Radio' : v.shape === 'cubo' ? 'Lado' : 'Longitud'} (pies)</label><input id="${ids}size" type="number" min="5" step="5" value="${v.size}"></div>
+      ${v.shape === 'linea' ? `<div class="fld"><label for="${ids}width">Anchura (pies)</label><input id="${ids}width" type="number" min="5" step="5" value="${v.width}"></div>` : ''}
+      <div class="fld"><label for="${ids}op">Transparencia</label><input id="${ids}op" type="range" min="0.1" max="0.8" step="0.05" value="${v.opacity}"></div>
+    </div>
+    <div class="swatches" style="margin-top:6px">${TPL_COLORS.map(c => `<button class="sw" style="background:${c}" data-tc="${c}" aria-label="Color" aria-pressed="${c === v.color}"></button>`).join('')}</div>`;
+}
+function readAreaForm(ids, v){
+  const o = {...v};
+  o.shape = $('#' + ids + 'shape').value; o.size = +$('#' + ids + 'size').value || v.size;
+  if ($('#' + ids + 'width')) o.width = +$('#' + ids + 'width').value || v.width;
+  o.opacity = +$('#' + ids + 'op').value;
+  return o;
+}
+let draftArea = {shape:'esfera', size:20, width:5, color:TPL_COLORS[0], opacity:.35, label:''};
+function renderAreaBox(){
+  const box = $('#areabox');
+  box.hidden = !areaOpen; $('#areabtn').setAttribute('aria-pressed', String(areaOpen));
+  if (!areaOpen) return;
+  if (box.contains(document.activeElement) && document.activeElement.matches('input[type=number],input[type=text]')){ box.dataset.stale = '1'; return; }
+  box.dataset.stale = '';
+  const sel = S.tplSel && S.tpls.get(S.tplSel);
+  const list = [...S.tpls].filter(([, t]) => onView(t)).sort((a, b) => (a[1].status === 'ok') - (b[1].status === 'ok'));
+  box.innerHTML = `
+    <div class="ihead"><span class="itoggle">Áreas</span><span class="iround"></span><button class="ix" id="aclose" aria-label="Cerrar áreas">×</button></div>
+    ${placing ? `<p class="ihint"><b>Pulsa en el mapa</b> donde empieza el área${placing.label ? ' de ' + esc(placing.label) : ''}.</p><div class="iacts"><button class="btn" id="acancel">Cancelar</button></div>`
+    : sel ? `<div class="eyebrow" style="margin-top:6px">${esc(sel.label || SHAPES[sel.shape])}${sel.status !== 'ok' ? ' · propuesta de ' + esc(sel.ownerName || 'un jugador') : ''}</div>
+      ${canEditTpl(sel) ? areaFormHTML(sel, 's-') + `<p class="ihint">Arrastra el área para moverla y el círculo blanco para girarla o cambiar su tamaño.</p>` : `<p class="ihint">${esc(SHAPES[sel.shape])} de ${sel.size} pies.</p>`}
+      <div class="iacts">
+        ${HOST && sel.status !== 'ok' ? '<button class="btn primary" id="aaccept">Aceptar</button>' : ''}
+        ${canEditTpl(sel) ? '<button class="btn danger" id="adel">Quitar</button>' : ''}
+        <button class="btn ghost" id="adesel">Listo</button>
+      </div>`
+    : `<div class="fld" style="margin-top:6px"><label for="n-label">Nombre (opcional)</label><input id="n-label" type="text" maxlength="40" placeholder="Bola de fuego" value="${esc(draftArea.label)}"></div>
+      ${areaFormHTML(draftArea, 'n-')}
+      <div class="iacts"><button class="btn primary" id="aplace">${HOST ? 'Colocar en el mapa' : 'Proponer área'}</button></div>`}
+    ${!placing && list.length ? `<ul class="alist">${list.map(([id, t]) => `<li data-aid="${esc(id)}" class="${id === S.tplSel ? 'cur' : ''}">
+        <span class="adot" style="background:${t.color}"></span><span class="iname">${esc(t.label || SHAPES[t.shape])} <small>${t.size} pies</small></span>
+        ${t.status !== 'ok' ? `<em class="aprop">${HOST ? esc(t.ownerName || 'Propuesta') : 'Propuesta'}</em>` : ''}</li>`).join('')}</ul>` : ''}`;
+  $('#aclose').onclick = () => { areaOpen = false; placing = null; vp.classList.remove('placing'); S.tplSel = null; renderTpls(); renderAreaBox(); };
+  if ($('#acancel')) $('#acancel').onclick = () => { placing = null; vp.classList.remove('placing'); renderAreaBox(); };
+  if ($('#adesel')) $('#adesel').onclick = () => { S.tplSel = null; renderTpls(); renderAreaBox(); };
+  if ($('#aaccept')) $('#aaccept').onclick = () => { const t = S.tpls.get(S.tplSel); write('tpl/' + S.tplSel, {...t, status:'ok'}); toast('Área aceptada'); };
+  if ($('#adel')) twoStep($('#adel'), () => { if (write('tpl/' + S.tplSel, null, 'del')){ S.tplSel = null; renderTpls(); renderTokens(); renderAreaBox(); } });
+  box.querySelectorAll('[data-aid]').forEach(li => li.onclick = () => { S.tplSel = li.dataset.aid; renderTpls(); renderAreaBox(); });
+  const ids = sel && canEditTpl(sel) ? 's-' : (!sel && !placing ? 'n-' : null);
+  if (!ids) return;
+  const apply = () => {
+    if (ids === 's-'){ saveTpl(S.tplSel, readAreaForm('s-', S.tpls.get(S.tplSel))); }
+    else { draftArea = {...readAreaForm('n-', draftArea), label:$('#n-label').value.trim()}; renderAreaBox(); }
+  };
+  ['shape', 'size', 'width'].forEach(k => { const el = $('#' + ids + k); if (el) el.onchange = apply; });
+  $('#' + ids + 'op').oninput = () => { if (ids === 's-'){ const g = {opacity:+$('#s-op').value}; S.tplDrag.set(S.tplSel, {g, at:Date.now(), mine:true}); renderTpls(); } };
+  $('#' + ids + 'op').onchange = () => { if (ids === 's-') S.tplDrag.delete(S.tplSel); apply(); };
+  box.querySelectorAll('[data-tc]').forEach(b => b.onclick = () => {
+    if (ids === 's-') saveTpl(S.tplSel, {color:b.dataset.tc}); else { draftArea.color = b.dataset.tc; renderAreaBox(); }
+  });
+  if ($('#n-label')) $('#n-label').onchange = e => { draftArea.label = e.target.value.trim(); };
+  if ($('#aplace')) $('#aplace').onclick = () => { draftArea = {...readAreaForm('n-', draftArea), label:$('#n-label').value.trim()}; startPlacing(draftArea); };
+}
+
+// "esfera de 20 pies", "cono de 15 pies", "línea de 100 pies de largo y 5 de ancho", "radio de 10 pies"...
+function parseArea(text){
+  const s = String(text || '').toLowerCase();
+  const m = s.match(/(esfera|cilindro|cono|l[ií]nea|cubo|radio|emanaci[oó]n)[^0-9]{0,20}(\d+)\s*(pies|ft|pie)/);
+  if (!m) return null;
+  const k = m[1].startsWith('l') ? 'linea' : m[1].startsWith('radio') || m[1].startsWith('emana') ? 'esfera' : m[1];
+  const wm = k === 'linea' && s.match(/(\d+)\s*(pies|ft)?\s*de\s*anch/);
+  return {shape:k, size:+m[2], width: wm ? +wm[1] : 5};
+}
+
+/* =========================================================
+   Varios mapas, niebla y regla
+   - El máster tiene varios mapas; los jugadores solo reciben el mapa donde están.
+   - La niebla tapa zonas; las fichas bajo la niebla no salen del navegador del máster.
+   - La regla mide en casillas de 5 pies (las diagonales cuentan 5, como en 5.5) y la ve toda la mesa.
+   ========================================================= */
+function cleanFogOp(o){
+  if (!o || typeof o !== 'object') return null;
+  const rev = !!o.rev, F = v => isFinite(v) ? Math.round(+v * 100) / 100 : 0;
+  if (o.all) return {rev, all:true};
+  if (Array.isArray(o.r) && o.r.length === 4) return {rev, r:o.r.map(F)};
+  if (Array.isArray(o.s) && o.s.length) return {rev, w:Math.max(.25, Math.min(20, F(o.w) || .5)), s:o.s.slice(0, 500).filter(p => Array.isArray(p)).map(p => [F(p[0]), F(p[1])])};
+  return null;
+}
+function cleanFog(f){ return {on:!!(f && f.on), ops:Array.isArray(f && f.ops) ? f.ops.slice(-600).map(cleanFogOp).filter(Boolean) : []}; }
+function cleanPage(p){ return {...DEF_BOARD, ...(p || {}), name:String((p && p.name) || 'Mapa').slice(0, 40), fog:cleanFog(p && p.fog)}; }
+
+function nearPath(s, x, y, w){
+  if (s.length === 1) return Math.hypot(x - s[0][0], y - s[0][1]) <= w;
+  for (let i = 1; i < s.length; i++){
+    const [ax, ay] = s[i-1], [bx, by] = s[i], dx = bx - ax, dy = by - ay, L = dx*dx + dy*dy;
+    const t = L ? Math.max(0, Math.min(1, ((x - ax)*dx + (y - ay)*dy) / L)) : 0;
+    if (Math.hypot(x - ax - t*dx, y - ay - t*dy) <= w) return true;
+  }
+  return false;
+}
+// ¿está tapado este punto (en casillas)?
+function fogHidden(fog, gx, gy){
+  if (!fog || !fog.on) return false;
+  let hid = true;
+  for (const o of fog.ops){
+    const hit = o.all ? true : o.r ? (gx >= o.r[0] && gx <= o.r[0] + o.r[2] && gy >= o.r[1] && gy <= o.r[1] + o.r[3]) : o.s ? nearPath(o.s, gx, gy, o.w) : false;
+    if (hit) hid = !o.rev;
+  }
+  return hid;
+}
+
+/* --- qué ve cada uno (solo lo usa el máster) --- */
+const onView = x => !HOST || (x && x.page === S.viewPage);
+function playerVisibleTok(t){
+  if (!t || t.page !== S.playerPage) return false;
+  if (pcEntry(t)) return true;
+  const pg = S.pages.get(S.playerPage), s = +t.size || 1;
+  return !fogHidden(pg && pg.fog, (+t.x || 0) + s/2, (+t.y || 0) + s/2);
+}
+function playerVisibleTpl(t){
+  if (!t || t.page !== S.playerPage) return false;
+  if (t.owner && t.owner !== 'dm') return true;
+  const pg = S.pages.get(S.playerPage);
+  return !fogHidden(pg && pg.fog, t.x, t.y);
+}
+function dragVisible(id, px, py){
+  const t = S.tokens.get(id); if (!t || t.page !== S.playerPage) return false;
+  if (pcEntry(t)) return true;
+  const b = S.board, s = +t.size || 1;
+  return !fogHidden(b.fog, (px - b.ox) / b.grid + s/2, (py - b.oy) / b.grid + s/2);
+}
+function boardForPlayers(){ const o = {...(S.pages.get(S.playerPage) || DEF_BOARD)}; delete o.name; return o; }
+function resyncPlayers(){ pushImages(); for (const c of conns) if (c.open && c.pid) sendFull(c, false); }
+
+/* --- mapas --- */
+function syncBoard(){ if (HOST) S.board = cleanPage(S.pages.get(S.viewPage)); }
+function setBoard(patch){ if (HOST) write('page/' + S.viewPage, {...S.pages.get(S.viewPage), ...patch}); }
+function ensurePages(){
+  if (!S.pages.size) S.pages.set('p1', cleanPage({...S.board, name:'Mapa 1'}));
+  const first = S.pages.keys().next().value;
+  if (!S.pages.has(S.playerPage)) S.playerPage = first;
+  if (!S.pages.has(S.viewPage)) S.viewPage = S.playerPage;
+  for (const t of S.tokens.values()) if (!S.pages.has(t.page)) t.page = first;
+  for (const t of S.tpls.values()) if (!S.pages.has(t.page)) t.page = first;
+  syncBoard();
+}
+function setViewPage(id){
+  if (!S.pages.has(id) || id === S.viewPage) return;
+  S.viewPage = id; syncBoard(); S.fitted = false; S.sel = null; S.tplSel = null; myRuler = null; fogDraft = null;
+  applyBoard(); renderTokCard(); renderAreaBox(); renderInit(); renderPageUI(); saveSoon();
+}
+function setPlayerPage(id){
+  if (!S.pages.has(id)) return;
+  S.playerPage = id; S.rulers.clear(); renderRulers();
+  resyncPlayers(); renderPageUI(); saveSoon();
+  toast(`Tus jugadores ahora ven «${S.pages.get(id).name}»`);
+}
+function addPage(){
+  const id = uid();
+  write('page/' + id, cleanPage({name:'Mapa ' + (S.pages.size + 1)}));
+  setViewPage(id); renderPageList(); openMap();
+}
+function deletePage(id){
+  if (S.pages.size < 2 || id === S.playerPage) return;
+  for (const [tid, t] of [...S.tokens]) if (t.page === id) write('tokens/' + tid, null, 'del');
+  for (const [aid, t] of [...S.tpls]) if (t.page === id) write('tpl/' + aid, null, 'del');
+  if (S.viewPage === id) setViewPage(S.playerPage);
+  write('page/' + id, null, 'del');
+  renderPageUI(); openMap();
+}
+function renderPageUI(){
+  if (!HOST) return;
+  const sel = $('#pagesel');
+  sel.innerHTML = [...S.pages].map(([id, p]) => `<option value="${esc(id)}" ${id === S.viewPage ? 'selected' : ''}>${esc(p.name)}${id === S.playerPage ? ' (jugadores)' : ''}</option>`).join('');
+  sel.hidden = S.pages.size < 2;
+  const away = S.viewPage !== S.playerPage;
+  $('#bringbtn').hidden = !away;
+  vp.classList.toggle('prep', away);
+  const bn = $('#pagebanner'); bn.hidden = !away;
+  if (away) bn.textContent = `Preparando «${S.board.name}» · tus jugadores están en «${(S.pages.get(S.playerPage) || {}).name || ''}»`;
+}
+function renderPageList(){
+  const box = $('#pagelist');
+  box.innerHTML = `<ul class="plist">${[...S.pages].map(([id, p]) => `<li class="${id === S.viewPage ? 'cur' : ''}">
+      <input class="pname" data-pn="${esc(id)}" value="${esc(p.name)}" maxlength="40" aria-label="Nombre del mapa">
+      <span class="pacts">
+        ${id === S.playerPage ? '<span class="ptag">Jugadores aquí</span>' : `<button class="btn" data-pp="${esc(id)}">Llevar jugadores</button>`}
+        ${id === S.viewPage ? '<span class="ptag soft">Lo estás viendo</span>' : `<button class="btn" data-pv="${esc(id)}">Ver</button>`}
+        ${S.pages.size > 1 && id !== S.playerPage ? `<button class="btn danger" data-pd="${esc(id)}">Borrar</button>` : ''}
+      </span></li>`).join('')}</ul>
+    <button class="btn" id="padd" style="margin-top:6px">+ Nuevo mapa</button>`;
+  box.querySelectorAll('[data-pn]').forEach(i => i.onchange = () => { const id = i.dataset.pn; write('page/' + id, {...S.pages.get(id), name:i.value.trim() || 'Mapa'}); renderPageUI(); $('#curpname').textContent = S.board.name; });
+  box.querySelectorAll('[data-pp]').forEach(b => b.onclick = () => { setPlayerPage(b.dataset.pp); renderPageList(); });
+  box.querySelectorAll('[data-pv]').forEach(b => b.onclick = () => { setViewPage(b.dataset.pv); openMap(); });
+  box.querySelectorAll('[data-pd]').forEach(b => twoStep(b, () => deletePage(b.dataset.pd)));
+  $('#padd').onclick = addPage;
+}
+
+/* --- niebla --- */
+let fogOpen = false, fogMode = 'rev', fogTool = 'rect', fogBrush = 2, fogDraft = null;
+const fogEditing = () => HOST && fogOpen && !rulerOn && !!(S.board.fog && S.board.fog.on);
+const toGrid = w => { const b = S.board; return [(w.x - b.ox) / b.grid, (w.y - b.oy) / b.grid]; };
+function draftOp(d){
+  if (d.s) return {rev:d.rev, w:d.w, s:d.s};
+  const xa = Math.min(d.a[0], d.b[0]), xb = Math.max(d.a[0], d.b[0]), ya = Math.min(d.a[1], d.b[1]), yb = Math.max(d.a[1], d.b[1]);
+  const r = S.snap ? [Math.floor(xa), Math.floor(ya), Math.max(1, Math.ceil(xb) - Math.floor(xa)), Math.max(1, Math.ceil(yb) - Math.floor(ya))] : [xa, ya, xb - xa, yb - ya];
+  return {rev:d.rev, r};
+}
+function renderFog(){
+  const c = $('#fog'), b = S.board, fog = cleanFog(b.fog);
+  if (!fog.on){ c.hidden = true; return; }
+  const {w, h} = worldSize(), k = Math.min(1, 2048 / Math.max(w, h, 1));
+  const W = Math.max(1, Math.round(w * k)), H = Math.max(1, Math.round(h * k));
+  if (c.width !== W) c.width = W; if (c.height !== H) c.height = H;
+  c.style.width = w + 'px'; c.style.height = h + 'px'; c.hidden = false; c.classList.toggle('dm', HOST);
+  const x = c.getContext('2d'), col = '#17120c', g = b.grid, ox = b.ox, oy = b.oy;
+  x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, W, H);
+  x.setTransform(k, 0, 0, k, 0, 0); x.fillStyle = col; x.fillRect(0, 0, w, h);
+  const ops = fogDraft && fogDraft.s ? [...fog.ops, draftOp(fogDraft)] : fog.ops;
+  for (const o of ops){
+    x.globalCompositeOperation = o.rev ? 'destination-out' : 'source-over'; x.fillStyle = col; x.strokeStyle = col;
+    if (o.all) x.fillRect(0, 0, w, h);
+    else if (o.r) x.fillRect(ox + o.r[0]*g, oy + o.r[1]*g, o.r[2]*g, o.r[3]*g);
+    else if (o.s){
+      x.lineWidth = o.w * 2 * g; x.lineCap = 'round'; x.lineJoin = 'round'; x.beginPath();
+      o.s.forEach((p, i) => { const X = ox + p[0]*g, Y = oy + p[1]*g; i ? x.lineTo(X, Y) : x.moveTo(X, Y); });
+      if (o.s.length === 1) x.lineTo(ox + o.s[0][0]*g + .1, oy + o.s[0][1]*g);
+      x.stroke();
+    }
+  }
+  x.globalCompositeOperation = 'source-over';
+}
+function fogDown(e){
+  const p = toGrid(toWorld(e.clientX, e.clientY));
+  fogDraft = fogTool === 'rect' ? {rev:fogMode === 'rev', a:p, b:p} : {rev:fogMode === 'rev', w:fogBrush / 2, s:[p]};
+  renderFog(); renderRulers();
+}
+function fogMove(e){
+  if (!fogDraft) return false;
+  const p = toGrid(toWorld(e.clientX, e.clientY));
+  if (fogDraft.s){ const l = fogDraft.s[fogDraft.s.length - 1]; if (Math.hypot(p[0] - l[0], p[1] - l[1]) > .2){ fogDraft.s.push(p); renderFog(); } }
+  else { fogDraft.b = p; renderRulers(); }
+  return true;
+}
+function fogUp(){
+  if (!fogDraft) return false;
+  const op = cleanFogOp(draftOp(fogDraft)); fogDraft = null; renderRulers();
+  const fog = S.board.fog;
+  if (op && (op.s || (op.r[2] > .05 && op.r[3] > .05))){
+    if (fog.ops.length >= 600){ toast('La niebla tiene demasiados trazos. Usa «Revelar todo» u «Ocultar todo» para empezar de nuevo.', 5000); renderFog(); return true; }
+    setBoard({fog:{...fog, ops:[...fog.ops, op]}});
+  } else renderFog();
+  return true;
+}
+function renderFogBox(){
+  const box = $('#fogbox'); box.hidden = !fogOpen; $('#fogbtn').setAttribute('aria-pressed', String(fogOpen));
+  vp.classList.toggle('fogging', fogEditing());
+  if (!fogOpen) return;
+  const fog = S.board.fog || {on:false, ops:[]};
+  box.innerHTML = `
+    <div class="ihead"><span class="itoggle">Niebla</span><span class="iround">${esc(S.board.name || '')}</span><button class="ix" id="fclose" aria-label="Cerrar niebla">×</button></div>
+    <label class="vpub" style="margin-top:6px"><input type="checkbox" id="fon" ${fog.on ? 'checked' : ''}> Niebla en este mapa</label>
+    ${fog.on ? `
+      <div class="seg" style="margin-top:8px"><button data-fm="rev" aria-pressed="${fogMode === 'rev'}">Revelar</button><button data-fm="hide" aria-pressed="${fogMode === 'hide'}">Ocultar</button></div>
+      <div class="seg" style="margin-top:6px"><button data-ft="rect" aria-pressed="${fogTool === 'rect'}">Rectángulo</button><button data-ft="brush" aria-pressed="${fogTool === 'brush'}">Pincel</button></div>
+      ${fogTool === 'brush' ? `<div class="vrow" style="margin-top:6px"><label for="fbrush" class="eyebrow">Grosor</label><select id="fbrush" class="search">${[[1,'1 casilla'],[2,'2 casillas'],[3,'3 casillas'],[5,'5 casillas'],[8,'8 casillas']].map(([v, l]) => `<option value="${v}" ${v === fogBrush ? 'selected' : ''}>${l}</option>`).join('')}</select></div>` : ''}
+      <p class="ihint">Arrastra sobre el mapa para ${fogMode === 'rev' ? 'descubrir' : 'tapar'} zonas. Mientras este panel esté abierto, mueve el mapa arrastrando con el botón derecho.</p>
+      <div class="iacts"><button class="btn" id="frevall">Revelar todo</button><button class="btn" id="fhideall">Ocultar todo</button></div>`
+    : `<p class="ihint">Al activarla, el mapa queda tapado para tus jugadores y tú vas descubriendo zonas. Las fichas que estén bajo la niebla no les llegan; sus personajes se ven siempre.</p>`}`;
+  $('#fclose').onclick = () => { fogOpen = false; renderFogBox(); };
+  $('#fon').onchange = e => setBoard({fog:{...fog, on:e.target.checked}});
+  box.querySelectorAll('[data-fm]').forEach(b => b.onclick = () => { fogMode = b.dataset.fm; renderFogBox(); });
+  box.querySelectorAll('[data-ft]').forEach(b => b.onclick = () => { fogTool = b.dataset.ft; renderFogBox(); });
+  if ($('#fbrush')) $('#fbrush').onchange = e => { fogBrush = +e.target.value; };
+  if ($('#frevall')) twoStep($('#frevall'), () => setBoard({fog:{on:true, ops:[{rev:true, all:true}]}}));
+  if ($('#fhideall')) twoStep($('#fhideall'), () => setBoard({fog:{on:true, ops:[]}}));
+}
+
+/* --- regla --- */
+let rulerOn = false, myRuler = null, rulerHold = false, rulerTm = null, lastRulerSend = 0, tokRuler = null;
+function cellOf(px, py){ const b = S.board, cx = Math.floor((px - b.ox) / b.grid), cy = Math.floor((py - b.oy) / b.grid); return {cx, cy, x:b.ox + (cx + .5) * b.grid, y:b.oy + (cy + .5) * b.grid}; }
+function renderRulers(){
+  const svg = $('#rulers'), {w, h} = worldSize();
+  svg.setAttribute('width', w); svg.setAttribute('height', h); svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  const g = S.board.grid, fs = Math.max(14, Math.round(g * .3)), sw = Math.max(3, g * .06);
+  const list = [];
+  if (myRuler) list.push({...myRuler, mine:true});
+  if (tokRuler) list.push({...tokRuler, mine:true});
+  if (!HOST || S.viewPage === S.playerPage) for (const r of S.rulers.values()) list.push(r);
+  let html = list.map(r => {
+    const A = cellOf(r.a[0], r.a[1]), B = cellOf(r.b[0], r.b[1]);
+    const ft = Math.max(Math.abs(A.cx - B.cx), Math.abs(A.cy - B.cy)) * 5;
+    const col = r.mine ? 'var(--octarine)' : 'var(--brass)';
+    const up = B.y <= A.y ? -1 : 1;
+    return `<g><line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" style="stroke:${col};stroke-width:${sw};stroke-dasharray:${sw*3} ${sw*2};stroke-linecap:round"/>
+      <circle cx="${A.x}" cy="${A.y}" r="${sw*1.8}" style="fill:${col}"/><circle cx="${B.x}" cy="${B.y}" r="${sw*1.8}" style="fill:${col}"/>
+      <text x="${B.x}" y="${B.y + up * fs * 1.15}" class="rl" style="font-size:${fs}px;stroke:${col}">${ft} pies${r.name ? ' · ' + esc(r.name) : ''}</text></g>`;
+  }).join('');
+  if (fogDraft && fogDraft.a){
+    const o = draftOp(fogDraft), b = S.board;
+    html += `<rect x="${b.ox + o.r[0]*g}" y="${b.oy + o.r[1]*g}" width="${o.r[2]*g}" height="${o.r[3]*g}" class="fogprev ${o.rev ? 'rev' : 'hide'}"/>`;
+  }
+  svg.innerHTML = html;
+}
+function sendRuler(){
+  const r = myRuler ? {a:myRuler.a.map(Math.round), b:myRuler.b.map(Math.round)} : {clear:true};
+  if (HOST){ if (S.viewPage === S.playerPage) broadcast({t:'ruler', k:'dm', name:'Máster', ...r}); }
+  else send(hostConn, {t:'ruler', ...r});
+}
+function rulerDown(e){
+  const w = toWorld(e.clientX, e.clientY); clearTimeout(rulerTm);
+  myRuler = {a:[w.x, w.y], b:[w.x, w.y]}; rulerHold = true; renderRulers(); sendRuler();
+}
+function rulerMove(e){
+  if (!rulerHold) return false;
+  const w = toWorld(e.clientX, e.clientY); myRuler.b = [w.x, w.y]; renderRulers();
+  const now = Date.now(); if (now - lastRulerSend > 60){ lastRulerSend = now; sendRuler(); }
+  return true;
+}
+function rulerUp(){
+  if (!rulerHold) return false;
+  rulerHold = false; sendRuler();
+  rulerTm = setTimeout(() => { myRuler = null; renderRulers(); sendRuler(); }, 1800);
+  return true;
+}
+const okPt = p => Array.isArray(p) && p.length === 2 && p.every(v => isFinite(v) && Math.abs(v) < 1e6);
+function setRulerMode(on){
+  rulerOn = on; $('#rulerbtn').setAttribute('aria-pressed', String(on));
+  vp.classList.toggle('measuring', on); vp.classList.toggle('fogging', fogEditing());
+  if (on) toast('Arrastra sobre el mapa para medir.', 2500);
+}
+
+/* =========================================================
+   Efectos visuales: ataques (según el tipo de daño) y áreas de hechizo.
+   Se dibujan en una capa encima del mapa; cada navegador los anima por su cuenta.
+   ========================================================= */
+const RM = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } })();
+const fxc = $('#fx'), fx = {items:[], raf:0};
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const normTxt = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const DMG_TYPES = ['Ácido','Contundente','Cortante','Frío','Fuego','Fuerza','Necrótico','Perforante','Psíquico','Radiante','Relámpago','Trueno','Veneno'];
+const FX_STYLES = [
+  [/fuego|llama|igne/, {c1:'#ffe08a', c2:'#e2471b', kind:'orb'}],
+  [/frio|hielo|escarcha/, {c1:'#f4fcff', c2:'#5fb8ea', kind:'shard'}],
+  [/relampago|rayo|electric/, {c1:'#fffef0', c2:'#7cc8ff', kind:'bolt'}],
+  [/trueno|sonic/, {c1:'#ece6ff', c2:'#7b6cf0', kind:'wave'}],
+  [/acido/, {c1:'#eeffa0', c2:'#5aa31f', kind:'orb'}],
+  [/veneno/, {c1:'#d2f79a', c2:'#3d7a2a', kind:'orb'}],
+  [/necrot/, {c1:'#d4b2f0', c2:'#3a1650', kind:'orb'}],
+  [/radiant/, {c1:'#fffbe0', c2:'#f0c43a', kind:'beam'}],
+  [/fuerza/, {c1:'#f2eaff', c2:'#8a5cf0', kind:'orb'}],
+  [/psiqu/, {c1:'#ffe0f4', c2:'#d04aa8', kind:'wave'}],
+  [/perfor/, {c1:'#efe6d2', c2:'#5a4630', kind:'arrow'}],
+  [/cortant/, {c1:'#ffffff', c2:'#b9c4cf', kind:'slash'}],
+  [/contund/, {c1:'#fff6e0', c2:'#a8916a', kind:'smash'}]];
+function fxStyle(tipo){ const t = normTxt(tipo); for (const [re, st] of FX_STYLES) if (re.test(t)) return st; return {c1:'#ffffff', c2:'#b9c4cf', kind:'slash'}; }
+function hexA(h, a){ const n = parseInt(String(h).slice(1, 7), 16) || 0; return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
+
+function fxSize(){
+  const r = vp.getBoundingClientRect(), d = Math.min(2, window.devicePixelRatio || 1);
+  const W = Math.max(1, Math.round(r.width * d)), H = Math.max(1, Math.round(r.height * d));
+  if (fxc.width !== W) fxc.width = W; if (fxc.height !== H) fxc.height = H;
+  return d;
+}
+function fxAdd(it){ it.t0 = performance.now() + (it.delay || 0); fx.items.push(it); fxc.hidden = false; if (!fx.raf) fx.raf = requestAnimationFrame(fxLoop); }
+function fxLoop(now){
+  const d = fxSize(), x = fxc.getContext('2d');
+  x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, fxc.width, fxc.height);
+  x.setTransform(d * S.view.s, 0, 0, d * S.view.s, d * S.view.x, d * S.view.y);
+  const dones = [];
+  fx.items = fx.items.filter(it => {
+    const t = (now - it.t0) / it.dur;
+    if (t >= 1){ if (it.done){ dones.push(it.done); it.done = null; } return false; }
+    if (t >= 0){ x.save(); try { it.draw(x, t, now); } catch(e){} x.restore(); }
+    return true;
+  });
+  dones.forEach(f => { try { f(); } catch(e){} });
+  if (fx.items.length) fx.raf = requestAnimationFrame(fxLoop);
+  else { fx.raf = 0; x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, fxc.width, fxc.height); fxc.hidden = true; }
+}
+function glow(x, cx, cy, r, c1, c2, a = 1){
+  if (r <= 0) return;
+  const gr = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+  gr.addColorStop(0, c1); gr.addColorStop(.4, c2); gr.addColorStop(1, hexA(c2, 0));
+  x.globalAlpha = Math.max(0, Math.min(1, a)); x.fillStyle = gr; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill(); x.globalAlpha = 1;
+}
+function tokCenter(id){
+  const t = S.tokens.get(id); if (!t || !onView(t) || !tokEls.has(id)) return null;
+  const g = S.board.grid, s = (+t.size || 1) * g, p = cell2px(+t.x || 0, +t.y || 0);
+  return {x:p.x + s/2, y:p.y + s/2, r:s/2};
+}
+function shakeTok(id, crit){
+  const el = tokEls.get(id); if (!el) return;
+  el.classList.remove('hitfx', 'critfx'); void el.offsetWidth;
+  el.classList.add(crit ? 'critfx' : 'hitfx');
+  setTimeout(() => el.classList.remove('hitfx', 'critfx'), 700);
+}
+
+/* --- piezas --- */
+function fxBurst(px, py, st, scale = 1){
+  const g = S.board.grid, n = RM ? 0 : 28;
+  const parts = Array.from({length:n}, () => ({a:Math.random() * 6.283, v:(.35 + Math.random()) * g * 1.1 * scale, r:(.04 + Math.random() * .06) * g * scale}));
+  fxAdd({dur:700, draw(x, t){
+    const e = easeOut(t);
+    glow(x, px, py, g * (.45 + e * .9) * scale, st.c1, st.c2, 1 - t);
+    x.strokeStyle = st.c1; x.globalAlpha = (1 - t) * .85; x.lineWidth = g * .07 * scale;
+    x.beginPath(); x.arc(px, py, g * (.3 + e * 1.15) * scale, 0, 7); x.stroke();
+    x.globalAlpha = 1 - t;
+    parts.forEach((p, i) => { x.fillStyle = i % 3 ? st.c2 : st.c1; x.beginPath(); x.arc(px + Math.cos(p.a) * p.v * e, py + Math.sin(p.a) * p.v * e, p.r * (1 - t * .6), 0, 7); x.fill(); });
+  }});
+}
+function fxText(px, py, text, color, big){
+  const g = S.board.grid, fs = Math.max(g * (big ? .62 : .46), (big ? 30 : 22) / S.view.s);
+  fxAdd({dur:1700, draw(x, t){
+    const e = easeOut(Math.min(1, t * 1.8)), pop = t < .12 ? .6 + t / .12 * .5 : 1.1 - Math.min(.1, (t - .12));
+    x.globalAlpha = t < .75 ? 1 : 1 - (t - .75) / .25;
+    x.font = `700 ${fs * pop}px "Alegreya Sans", "Trebuchet MS", sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.lineJoin = 'round'; x.lineWidth = fs * .2; x.strokeStyle = 'rgba(20,14,8,.9)';
+    const yy = py - g * .35 - e * g * .8;
+    x.strokeText(text, px, yy); x.fillStyle = color; x.fillText(text, px, yy);
+  }});
+}
+function fxProjectile(a, b, st, done){
+  const g = S.board.grid, dist = Math.hypot(b.x - a.x, b.y - a.y), ang = Math.atan2(b.y - a.y, b.x - a.x);
+  const dur = Math.max(260, Math.min(900, 180 + dist / g * 60));
+  const sx = a.x + Math.cos(ang) * a.r * .6, sy = a.y + Math.sin(ang) * a.r * .6;
+  fxAdd({dur, done, draw(x, t){
+    const px = lerp(sx, b.x, t), py = lerp(sy, b.y, t) - (st.kind === 'arrow' ? Math.sin(t * Math.PI) * dist * .06 : 0);
+    if (st.kind === 'arrow'){
+      const a2 = ang + (st.kind === 'arrow' ? Math.cos(t * Math.PI) * -.12 * Math.min(1, dist / g / 6) : 0);
+      x.translate(px, py); x.rotate(a2); x.lineCap = 'round';
+      x.strokeStyle = st.c2; x.lineWidth = g * .05; x.beginPath(); x.moveTo(-g * .5, 0); x.lineTo(g * .18, 0); x.stroke();
+      x.fillStyle = '#d8d8d8'; x.beginPath(); x.moveTo(g * .3, 0); x.lineTo(g * .12, -g * .08); x.lineTo(g * .12, g * .08); x.fill();
+      x.fillStyle = '#b8402a'; x.beginPath(); x.moveTo(-g * .5, 0); x.lineTo(-g * .38, -g * .09); x.lineTo(-g * .3, 0); x.lineTo(-g * .38, g * .09); x.fill();
+    } else if (st.kind === 'shard'){
+      for (let k = 0; k < 3; k++){
+        const tt = Math.max(0, t - k * .06), qx = lerp(sx, b.x, tt), qy = lerp(sy, b.y, tt) + (k - 1) * g * .14;
+        x.save(); x.translate(qx, qy); x.rotate(ang); x.globalAlpha = 1 - k * .25;
+        x.fillStyle = st.c2; x.beginPath(); x.moveTo(g * .3, 0); x.lineTo(0, -g * .08); x.lineTo(-g * .22, 0); x.lineTo(0, g * .08); x.fill();
+        x.fillStyle = st.c1; x.beginPath(); x.moveTo(g * .22, 0); x.lineTo(0, -g * .035); x.lineTo(-g * .1, 0); x.lineTo(0, g * .035); x.fill(); x.restore();
+      }
+    } else {
+      for (let k = 7; k >= 0; k--){ const tt = Math.max(0, t - k * .03); glow(x, lerp(sx, b.x, tt), lerp(sy, b.y, tt), g * (.34 - k * .03), st.c1, st.c2, (1 - k / 8) * .95); }
+      if (!RM) for (let k = 0; k < 4; k++){ const tt = Math.max(0, t - .05 - Math.random() * .15); x.fillStyle = st.c1; x.globalAlpha = .7; x.beginPath(); x.arc(lerp(sx, b.x, tt) + (Math.random() - .5) * g * .3, lerp(sy, b.y, tt) + (Math.random() - .5) * g * .3, g * .035, 0, 7); x.fill(); }
+    }
+  }});
+}
+function fxBolt(a, b, st, done){
+  const g = S.board.grid;
+  const zig = () => { const pts = [[a.x, a.y]], n = Math.max(4, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / g * 2.2)); const nx = -(b.y - a.y), ny = b.x - a.x, L = Math.hypot(nx, ny) || 1;
+    for (let i = 1; i < n; i++){ const t = i / n, off = (Math.random() - .5) * g * .55; pts.push([lerp(a.x, b.x, t) + nx / L * off, lerp(a.y, b.y, t) + ny / L * off]); } pts.push([b.x, b.y]); return pts; };
+  let pts = zig(), last = 0;
+  fxAdd({dur:480, done, draw(x, t, now){
+    if (now - last > 55){ pts = zig(); last = now; }
+    const a2 = t < .15 ? t / .15 : 1 - (t - .15) / .85;
+    x.lineJoin = 'round'; x.lineCap = 'round';
+    [[g * .22, st.c2, .35], [g * .09, st.c1, 1]].forEach(([w, c, al]) => {
+      x.globalAlpha = a2 * al; x.strokeStyle = c; x.lineWidth = w; x.beginPath();
+      pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.stroke();
+    });
+    glow(x, a.x, a.y, g * .5, st.c1, st.c2, a2 * .7);
+  }});
+}
+function fxBeam(a, b, st, done){
+  const g = S.board.grid;
+  fxAdd({dur:650, done, draw(x, t){
+    const grow = Math.min(1, t / .3), fade = t < .6 ? 1 : 1 - (t - .6) / .4;
+    const ex = lerp(a.x, b.x, grow), ey = lerp(a.y, b.y, grow);
+    x.lineCap = 'round';
+    x.globalAlpha = fade * .45; x.strokeStyle = st.c2; x.lineWidth = g * (.42 + Math.sin(t * 30) * .04); x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(ex, ey); x.stroke();
+    x.globalAlpha = fade; x.strokeStyle = st.c1; x.lineWidth = g * .13; x.beginPath(); x.moveTo(a.x, a.y); x.lineTo(ex, ey); x.stroke();
+    glow(x, ex, ey, g * .55, st.c1, st.c2, fade);
+  }});
+}
+function fxWave(a, b, st, done){
+  const g = S.board.grid, ang = Math.atan2(b.y - a.y, b.x - a.x);
+  fxAdd({dur:620, done, draw(x, t){
+    x.lineCap = 'round';
+    for (let k = 0; k < 3; k++){
+      const tt = t - k * .12; if (tt < 0 || tt > 1) continue;
+      const px = lerp(a.x, b.x, tt), py = lerp(a.y, b.y, tt), r = g * (.25 + tt * .45);
+      x.globalAlpha = (1 - tt) * .9; x.strokeStyle = k ? st.c2 : st.c1; x.lineWidth = g * .08;
+      x.beginPath(); x.arc(px - Math.cos(ang) * r, py - Math.sin(ang) * r, r, ang - .9, ang + .9); x.stroke();
+    }
+  }});
+}
+function fxMelee(a, b, st, hit, done){
+  const g = S.board.grid, ang = Math.atan2(b.y - a.y, b.x - a.x);
+  if (st.kind === 'arrow'){ // estocada
+    fxAdd({dur:340, done, draw(x, t){
+      const e = t < .5 ? easeOut(t * 2) : 1 - (t - .5) * 2;
+      const sx = a.x + Math.cos(ang) * a.r * .7, sy = a.y + Math.sin(ang) * a.r * .7;
+      const ex = lerp(sx, b.x + (hit ? 0 : Math.cos(ang + 1.2) * g * .5), e), ey = lerp(sy, b.y + (hit ? 0 : Math.sin(ang + 1.2) * g * .5), e);
+      x.lineCap = 'round'; x.strokeStyle = st.c1; x.lineWidth = g * .07; x.globalAlpha = .95;
+      x.beginPath(); x.moveTo(sx, sy); x.lineTo(ex, ey); x.stroke();
+    }});
+    return;
+  }
+  if (st.kind === 'smash'){
+    fxAdd({dur:360, done, draw(x, t){
+      const e = easeOut(t), px = hit ? b.x : b.x + Math.cos(ang + 1.3) * g * .6, py = hit ? b.y : b.y + Math.sin(ang + 1.3) * g * .6;
+      x.globalAlpha = 1 - t; x.strokeStyle = st.c1; x.lineWidth = g * .12 * (1 - t);
+      x.beginPath(); x.arc(px, py, b.r * (1.4 - e * .9), 0, 7); x.stroke();
+    }});
+    return;
+  }
+  // tajo
+  const start = ang - Math.PI / 2 - .5, sweep = Math.PI + 1;
+  fxAdd({dur:380, done, draw(x, t){
+    const e = easeOut(t), r = b.r * (hit ? 1.15 : 1.6), a0 = start + sweep * Math.max(0, e - .35), a1 = start + sweep * e;
+    x.lineCap = 'round';
+    for (let k = 0; k < 6; k++){
+      const aa = lerp(a0, a1, k / 5);
+      x.globalAlpha = (1 - t * .7) * (k / 5); x.strokeStyle = k > 3 ? st.c1 : st.c2; x.lineWidth = g * (.03 + k * .018);
+      x.beginPath(); x.arc(b.x, b.y, r, Math.max(a0, aa - sweep * .12), aa); x.stroke();
+    }
+  }});
+}
+
+/* --- ataque completo: del atacante al objetivo, y el resultado --- */
+function playAttackFx(r){
+  if (!r || !r.res || r.kind !== 'atq' || !r.to) return;
+  const B = tokCenter(r.to); if (!B) return;
+  const A = r.from ? tokCenter(r.from) : null;
+  const tipo = (r.res.dmg && r.res.dmg.tipo) || (r.spec.dmg && r.spec.dmg.tipo) || '';
+  const st = fxStyle(tipo), g = S.board.grid, hit = r.hit !== false, crit = r.res.nat === 20;
+  const dmg = r.res.dmg && hit ? r.res.dmg.total : null;
+  const result = () => {
+    if (hit){ fxBurst(B.x, B.y, st, crit ? 1.6 : 1); shakeTok(r.to, crit); }
+    const label = !hit ? 'Falla' : crit ? `¡Crítico!${dmg !== null ? ' −' + dmg : ''}` : dmg !== null ? '−' + dmg : r.hit ? '¡Impacta!' : String(r.res.total);
+    fxText(B.x, B.y - B.r * .4, label, !hit ? '#efe7d6' : crit ? '#ffd24a' : '#ff6b4a', crit);
+  };
+  if (!A || A === B || RM){ result(); return; }
+  const dist = Math.hypot(B.x - A.x, B.y - A.y), melee = dist <= A.r + B.r + g * .6;
+  let T = {x:B.x, y:B.y, r:B.r};
+  if (!hit){ const ang = Math.atan2(B.y - A.y, B.x - A.x) + (Math.random() < .5 ? .3 : -.3); T = {x:A.x + Math.cos(ang) * (dist + g * .9), y:A.y + Math.sin(ang) * (dist + g * .9), r:B.r}; }
+  if (melee && ['slash','smash','arrow'].includes(st.kind)) fxMelee(A, B, st, hit, result);
+  else if (st.kind === 'bolt') fxBolt(A, T, st, result);
+  else if (st.kind === 'beam') fxBeam(A, T, st, result);
+  else if (st.kind === 'wave') fxWave(A, T, st, result);
+  else fxProjectile(A, T, ['slash','smash'].includes(st.kind) ? {...st, kind:'arrow', c2:'#5a4630'} : st, result);
+}
+
+/* --- área de hechizo: una onda la recorre desde su origen --- */
+function fxArea(t){
+  if (RM || !t) return;
+  const G = tplGeom(t), g = S.board.grid, col = t.color;
+  let bx0, by0, bx1, by1;
+  if (G.circle){ bx0 = G.O.x - G.r; bx1 = G.O.x + G.r; by0 = G.O.y - G.r; by1 = G.O.y + G.r; }
+  else { bx0 = Math.min(...G.pts.map(p => p[0])); bx1 = Math.max(...G.pts.map(p => p[0])); by0 = Math.min(...G.pts.map(p => p[1])); by1 = Math.max(...G.pts.map(p => p[1])); }
+  const pts = []; let tries = 0;
+  const want = Math.min(140, 30 + Math.round((bx1 - bx0) * (by1 - by0) / (g * g) * 2.5));
+  while (pts.length < want && tries++ < want * 12){
+    const px = lerp(bx0, bx1, Math.random()), py = lerp(by0, by1, Math.random());
+    if (inGeom(G, px, py)) pts.push({x:px, y:py, d:Math.hypot(px - G.O.x, py - G.O.y), r:(.05 + Math.random() * .09) * g, vy:-(.2 + Math.random() * .7) * g, w:Math.random()});
+  }
+  const maxD = Math.max(g, ...pts.map(p => p.d));
+  const shape = x => { x.beginPath(); if (G.circle) x.arc(G.O.x, G.O.y, G.r, 0, 7); else { G.pts.forEach((q, i) => i ? x.lineTo(q[0], q[1]) : x.moveTo(q[0], q[1])); x.closePath(); } };
+  fxAdd({dur:1300, draw(x, tt){
+    const e = easeOut(Math.min(1, tt * 1.25)), front = e * maxD * 1.1 + 1;
+    x.save(); shape(x); x.clip();
+    const gr = x.createRadialGradient(G.O.x, G.O.y, Math.max(0, front - g * 1.6), G.O.x, G.O.y, front);
+    gr.addColorStop(0, hexA(col, 0)); gr.addColorStop(.6, hexA(col, .6 * (1 - tt))); gr.addColorStop(.9, hexA('#ffffff', .75 * (1 - tt))); gr.addColorStop(1, hexA('#ffffff', 0));
+    x.fillStyle = gr; x.fillRect(G.O.x - front - 2, G.O.y - front - 2, front * 2 + 4, front * 2 + 4);
+    x.fillStyle = hexA(col, .25 * Math.max(0, 1 - tt * 1.5)); x.fillRect(bx0, by0, bx1 - bx0, by1 - by0);
+    x.restore();
+    for (const p of pts){
+      if (p.d > front) continue;
+      const age = Math.min(1, (front - p.d) / (maxD * .7) + tt * .4);
+      x.globalAlpha = Math.max(0, (1 - age) * (1 - tt * .4)); x.fillStyle = age < .25 || p.w > .8 ? '#ffffff' : col;
+      x.beginPath(); x.arc(p.x, p.y + p.vy * age, p.r * (1 - age * .5), 0, 7); x.fill();
+    }
+    x.globalAlpha = 1;
+    x.strokeStyle = hexA('#ffffff', .8 * (1 - tt)); x.lineWidth = g * .05; shape(x); x.stroke();
+  }});
+}
+
+/* --- elegir objetivo de un ataque --- */
+let targeting = null;
+function findAttacker(entry){
+  const sel = S.sel && S.tokens.get(S.sel);
+  if (sel && sel.entry === entry && onView(sel)) return S.sel;
+  for (const [id, t] of S.tokens) if (t.entry === entry && onView(t)) return id;
+  return null;
+}
+function startTargeting(req){
+  targeting = req; vp.classList.add('targeting'); renderTargetBar();
+  if (window.innerWidth <= 860) showSide(false);
+}
+function endTargeting(){ targeting = null; vp.classList.remove('targeting'); renderTargetBar(); renderTokens(); }
+function renderTargetBar(){
+  const b = $('#targetbar'); b.hidden = !targeting; if (!targeting) return;
+  const e = S.entries.get(targeting.entry), a = e && atkList(e)[+targeting.key];
+  if (targeting.multi){
+    const n = targeting.picks.length, areas = [...S.tpls].filter(([, t]) => onView(t));
+    b.innerHTML = `<span><b>${esc(a ? a.n : 'Hechizo')}</b> · pulsa las fichas afectadas (${n})</span>
+      ${areas.length ? `<select class="search" id="tarea" aria-label="Usar un área"><option value="">Usar un área…</option>${areas.map(([id, t]) => `<option value="${esc(id)}" ${id === targeting.area ? 'selected' : ''}>${esc(t.label || SHAPES[t.shape])} · ${t.size} pies</option>`).join('')}</select>` : ''}
+      <button class="btn primary" id="tgo">Lanzar</button><button class="btn ghost" id="tcancel">Cancelar</button>`;
+    if ($('#tarea')) $('#tarea').onchange = ev => {
+      const aid = ev.target.value, T = aid && liveTpl(aid);
+      targeting.area = aid || null;
+      if (T) targeting.picks = [...S.tokens].filter(([id, t]) => onView(t) && tokInTpl(T, id, t)).map(([id]) => id);
+      renderTargetBar(); renderTokens();
+    };
+    $('#tgo').onclick = () => { const r = targeting; endTargeting(); askRoll({...r, tos:r.picks, area:r.area}, true); };
+    $('#tcancel').onclick = endTargeting;
+    return;
+  }
+  b.innerHTML = `<span><b>${esc(a ? a.n : 'Ataque')}</b> · pulsa la ficha a la que atacas</span><button class="btn" id="tnone">Sin objetivo</button><button class="btn ghost" id="tcancel">Cancelar</button>`;
+  $('#tnone').onclick = () => { const r = targeting; endTargeting(); askRoll(r, true); };
+  $('#tcancel').onclick = endTargeting;
+}
+function applyRollDmg(id, half){
+  const r = S.rolls.find(x => x.id === id); if (!r || r.applied || !r.res || !r.res.dmg) return;
+  const t = S.tokens.get(r.to); if (!t){ toast('Esa ficha ya no está en el mapa.'); return; }
+  const v = vitals(t); if (v.hp === null){ toast('Esa ficha no tiene PG apuntados.'); return; }
+  const n = half ? Math.floor(r.res.dmg.total / 2) : r.res.dmg.total;
+  setVitals(r.to, {hp:Math.max(0, v.hp - n)}); r.applied = n; broadcastRolls();
+  const c = tokCenter(r.to); if (c){ fxText(c.x, c.y - c.r * .4, '−' + n, '#ff6b4a'); shakeTok(r.to); }
+}
+
+/* =========================================================
+   Ataques de salvación: el lanzador fija una CD, cada objetivo tira su salvación
+   con el modificador de su hoja y recibe el daño entero o la mitad.
+   ========================================================= */
+function tokInTpl(T, id, t){
+  const G = tplGeom(T), g = S.board.grid, size = (+t.size || 1) * g, p = cell2px(+t.x || 0, +t.y || 0);
+  const cx = p.x + size/2, cy = p.y + size/2, rr = size/2 * .8;
+  const pts = [[cx, cy]]; for (let k = 0; k < 8; k++) pts.push([cx + rr * Math.cos(k * Math.PI/4), cy + rr * Math.sin(k * Math.PI/4)]);
+  return pts.some(([x, y]) => inGeom(G, x, y));
+}
+function saveBonus(t, st){
+  const e = t && t.entry && S.entries.get(t.entry);
+  if (!e) return 0;
+  const comp = Array.isArray(e.salv) && e.salv.includes(st);
+  return statMod(e, st) + (comp ? profOf(e) : 0) - exhPen(e);
+}
+function rollSaves(r){
+  const sv = r.spec.save, d = r.res.dmg ? r.res.dmg.total : null;
+  r.saves = (r.tos || []).map(o => {
+    const t = S.tokens.get(o.id), bonus = saveBonus(t, sv.st), n = die(20), total = n + bonus, saved = total >= sv.cd;
+    return {id:o.id, name:o.name, n, bonus, total, saved, dmg: d === null ? null : saved ? (sv.half ? Math.floor(d / 2) : 0) : d};
+  });
+}
+function saveItemHTML(r){
+  const res = r.res, st = r.status, sv = r.spec.save, mineP = !HOST && r.pid === me().id;
+  const head = `<div class="rhead"><b>${esc(r.who)}</b><span>${esc(r.spec.label)} · salvación de ${esc(STATN[sv.st])} CD ${sv.cd}</span>${r.secret ? '<em class="rsec">Oculta</em>' : ''}</div>`;
+  let body;
+  if (st === 'ok' && res){
+    body = `${res.dmg ? `<div class="rres dmg"><b class="rtot">${res.dmg.total}</b><span class="rdet">daño${res.dmg.tipo ? ' ' + esc(res.dmg.tipo) : ''} · ${esc(res.dmg.detail)}${sv.half ? ' · la mitad si salva' : ' · nada si salva'}</span></div>` : ''}
+      ${r.saves && r.saves.length ? `<ul class="saves">${r.saves.map(x => `<li class="${x.saved ? 'ok' : 'ko'}"><b>${esc(x.name)}</b>
+        <span>${x.total} <small>d20 (${x.n}) ${sgn(x.bonus)}</small></span><em>${x.saved ? 'Salva' : 'Falla'}${x.dmg !== null ? ' · ' + x.dmg : ''}</em></li>`).join('')}</ul>` : '<div class="rstate">Sin objetivos</div>'}
+      ${HOST && res.dmg && r.saves && r.saves.some(x => x.dmg > 0) ? (r.applied ? '<div class="rstate">Daño aplicado</div>'
+        : `<div class="ract"><button class="btn danger" data-sapply="${esc(r.id)}">Aplicar el daño a todos</button></div>`) : ''}`;
+  } else if (st === 'no') body = '<div class="rstate no">El máster no la ha aceptado</div>';
+  else body = `<div class="rstate">${HOST ? `Pide permiso para lanzar${r.tos && r.tos.length ? ' contra ' + r.tos.map(o => esc(o.name)).join(', ') : ''}` : mineP ? 'Esperando a que el máster la acepte…' : 'Esperando al máster…'}</div>`;
+  return `<li class="ritem ${st}${r.secret ? ' secret' : ''}">${head}${body}
+    ${HOST && st === 'pend' ? `<div class="ract"><button class="btn primary" data-acc="${esc(r.id)}">Aceptar y tirar</button><button class="btn danger" data-rej="${esc(r.id)}">No</button></div>` : ''}</li>`;
+}
+function applySaveDmg(id){
+  const r = S.rolls.find(x => x.id === id); if (!r || r.applied || !r.saves) return;
+  let n = 0, skipped = 0;
+  r.saves.forEach(x => {
+    if (!(x.dmg > 0)) return;
+    const t = S.tokens.get(x.id); if (!t){ skipped++; return; }
+    const v = vitals(t); if (v.hp === null){ skipped++; return; }
+    setVitals(x.id, {hp:Math.max(0, v.hp - x.dmg)}); n++;
+    const c = tokCenter(x.id); if (c){ fxText(c.x, c.y - c.r * .4, '−' + x.dmg, '#ff6b4a'); shakeTok(x.id); }
+  });
+  r.applied = true; broadcastRolls();
+  toast(`Daño aplicado a ${n} ${n === 1 ? 'ficha' : 'fichas'}${skipped ? ` (${skipped} sin PG apuntados)` : ''}`);
+}
+function playSaveFx(r){
+  if (!r || !r.res || !r.saves || !r.saves.length) return;
+  const st = fxStyle((r.res.dmg && r.res.dmg.tipo) || (r.spec.dmg && r.spec.dmg.tipo) || '');
+  const A = r.from ? tokCenter(r.from) : null;
+  r.saves.forEach((x, i) => {
+    const B = tokCenter(x.id); if (!B) return;
+    const result = () => {
+      if (!x.saved || x.dmg) fxBurst(B.x, B.y, st, x.saved ? .6 : 1);
+      if (!x.saved) shakeTok(x.id);
+      fxText(B.x, B.y - B.r * .4, `${x.saved ? 'Salva' : 'Falla'}${x.dmg ? ' −' + x.dmg : ''}`, x.saved ? '#efe7d6' : '#ff6b4a');
+    };
+    const delay = i * 150;
+    if (!A || r.area || RM || x.id === r.from){ setTimeout(result, r.area ? 350 + delay : delay); return; }
+    setTimeout(() => {
+      if (st.kind === 'bolt') fxBolt(A, B, st, result);
+      else if (st.kind === 'beam') fxBeam(A, B, st, result);
+      else if (st.kind === 'wave') fxWave(A, B, st, result);
+      else if (['orb','shard'].includes(st.kind)) fxProjectile(A, B, st, result);
+      else result();
+    }, delay);
+  });
+}
+
+/* ---------------- toolbar ---------------- */
+$('#rulerbtn').onclick = () => setRulerMode(!rulerOn);
+$('#fogbtn').onclick = () => { fogOpen = !fogOpen; if (fogOpen && areaOpen){ areaOpen = false; placing = null; vp.classList.remove('placing'); S.tplSel = null; renderTpls(); renderAreaBox(); } if (fogOpen && rulerOn) setRulerMode(false); renderFogBox(); };
+['pointerdown','wheel','dblclick'].forEach(ev => $('#fogbox').addEventListener(ev, e => e.stopPropagation()));
+['pointerdown','wheel','dblclick'].forEach(ev => $('#targetbar').addEventListener(ev, e => e.stopPropagation()));
+$('#pagesel').onchange = e => setViewPage(e.target.value);
+$('#bringbtn').onclick = () => setPlayerPage(S.viewPage);
+$('#areabtn').onclick = () => { areaOpen = !areaOpen; if (areaOpen && fogOpen){ fogOpen = false; renderFogBox(); } if (!areaOpen){ placing = null; vp.classList.remove('placing'); S.tplSel = null; renderTpls(); } renderAreaBox(); };
+['pointerdown','wheel','dblclick'].forEach(ev => $('#areabox').addEventListener(ev, e => e.stopPropagation()));
+$('#areabox').addEventListener('focusout', () => setTimeout(() => { const b = $('#areabox'); if (b.dataset.stale && !b.contains(document.activeElement)) renderAreaBox(); }, 0));
+$('#initbtn').onclick = () => { initOpen = !initOpen; initCollapsed = false; renderInit(); };
+['pointerdown','wheel','dblclick'].forEach(ev => $('#initbox').addEventListener(ev, e => e.stopPropagation()));
+$('#zin').onclick = () => { const r = vp.getBoundingClientRect(); zoomAt(r.left + r.width/2, r.top + r.height/2, 1.25); };
+$('#zout').onclick = () => { const r = vp.getBoundingClientRect(); zoomAt(r.left + r.width/2, r.top + r.height/2, 0.8); };
+$('#fit').onclick = fit;
+$('#gridbtn').onclick = () => {
+  if (HOST) setBoard({showGrid:!S.board.showGrid});
+  else { localGridOverride = true; const g = $('#grid'); g.hidden = !g.hidden; $('#gridbtn').setAttribute('aria-pressed', String(!g.hidden)); }
+};
+$('#snapbtn').onclick = () => { S.snap = !S.snap; $('#snapbtn').setAttribute('aria-pressed', String(S.snap)); };
+$('#addtok').onclick = () => addToken({name:'Nueva ficha'});
+$('#mapbtn').onclick = openMap;
+$('#invbtn').onclick = openInvite;
+$('#savebtn').onclick = () => { $('#importwarn').hidden = true; $('#importbtn').textContent = 'Cargar una copia…'; $('#savesheet').hidden = false; };
+function showSide(on){ $('#side').hidden = !on; $('#bookbtn').setAttribute('aria-pressed', String(on)); }
+$('#bookbtn').onclick = () => showSide($('#side').hidden);
+if (window.innerWidth <= 860) showSide(false);
+let userMoved = false;
+['wheel','pointerdown'].forEach(ev => vp.addEventListener(ev, () => { userMoved = true; }));
+['#zin','#zout'].forEach(b => $(b).addEventListener('click', () => { userMoved = true; }));
+try { new ResizeObserver(() => { if (!userMoved) fit(); }).observe(vp); } catch(e){ window.addEventListener('resize', () => { if (!userMoved) fit(); }); }
+
+let toastTm;
+function toast(msg, ms=3200){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTm); toastTm = setTimeout(() => t.hidden = true, ms); }
+
+function renderPeers(){
+  const pe = $('#peers'), n = HOST ? S.players + 1 : S.players;
+  pe.hidden = n < 2; pe.textContent = n + ' en la mesa';
+}
+function renderEmpty(){
+  const el = $('#empty');
+  if (!HOST && !S.ready){ el.hidden = false; el.innerHTML = `<b>${esc(S.status || 'Conectando con la mesa…')}</b>En cuanto el máster tenga su tablero abierto, aparecerá aquí el mapa.`; return; }
+  if (S.board.map){ el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = HOST
+    ? '<b>Aún no hay mapa</b>Pulsa <em>Mapas…</em> para subir la imagen de tu mapa y ajustar la cuadrícula, y <em>Invitar</em> para mandar el enlace a tus jugadores.'
+    : '<b>Aún no hay mapa</b>El máster todavía no ha subido el mapa. Aparecerá aquí en cuanto lo haga.';
+}
+
+/* ---------------- nombre del jugador ---------------- */
+function askName(){ $('#nameinput').value = me().name || ''; $('#namesheet').hidden = false; setTimeout(() => $('#nameinput').focus(), 50); }
+let playerStarted = false;
+$('#nameform').onsubmit = ev => {
+  ev.preventDefault();
+  const name = $('#nameinput').value.trim().slice(0, 40); if (!name) return;
+  const m = me(); m.name = name; saveMe(m); $('#namesheet').hidden = true;
+  if (!playerStarted){ playerStarted = true; startPlayer(); }
+  else if (hostConn && hostConn.open){ hello(); setStatus('Jugador · ' + name); }
+};
+
+/* ---------------- arranque ---------------- */
+applyView();
+if (!HOST){
+  $('#initbtn').hidden = true; $('#fogbtn').hidden = true; $('#pagesel').hidden = true;
+  document.querySelector('.tabs [data-k="ficha"]').hidden = true;
+  $('#addtok').hidden = true; $('#snapbtn').hidden = true;
+  $('#who').classList.add('clickable'); $('#who').title = 'Cambiar tu nombre'; $('#who').onclick = askName;
+}
+if (HOST){
+  $('#mapbtn').hidden = false; $('#invbtn').hidden = false; $('#savebtn').hidden = false;
+  window.addEventListener('beforeunload', saveNow);
+  openIDB().then(db => new Promise(res => {
+    idb = db;
+    if (!db){ toast('Este navegador no deja guardar. Descarga copias a menudo.'); return res(); }
+    try { const r = db.transaction('kv').objectStore('kv').get('state'); r.onsuccess = () => { loadState(r.result); res(); }; r.onerror = () => res(); } catch(e){ res(); }
+  })).then(() => { ensurePages(); renderPageUI(); applyBoard(); renderSide(); if (S.init.rows.length) initOpen = true; renderInit(); startHost(); });
+} else {
+  $('#who').textContent = 'Conectando…';
+  applyBoard(); renderSide();
+  saveMe(me());
+  if (me().name){ playerStarted = true; startPlayer(); } else askName();
+}
+})();
+
+
+</script>
+</body>
+</html>
